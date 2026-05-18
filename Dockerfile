@@ -1,8 +1,10 @@
 FROM node:20-alpine AS builder
 WORKDIR /build
 
+RUN apk add --no-cache python3 make g++
+
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN CI=true npm install --omit=dev
 
 COPY src ./src
 COPY scripts ./scripts
@@ -14,14 +16,15 @@ RUN apk add --no-cache curl ca-certificates \
 FROM node:20-alpine AS runtime
 WORKDIR /app
 
-RUN addgroup -S pfmon && adduser -S pfmon -G pfmon \
- && mkdir -p /data && chown pfmon:pfmon /data
+RUN addgroup -S pfmon && adduser -S pfmon -G pfmon
 
 COPY --from=builder --chown=pfmon:pfmon /build/node_modules ./node_modules
 COPY --from=builder --chown=pfmon:pfmon /build/src ./src
 COPY --from=builder --chown=pfmon:pfmon /build/scripts ./scripts
 COPY --from=builder --chown=pfmon:pfmon /build/data ./data
 COPY --chown=pfmon:pfmon package.json ./
+
+RUN mkdir -p /data && chown -R pfmon:pfmon /data
 
 USER pfmon
 EXPOSE 8080
