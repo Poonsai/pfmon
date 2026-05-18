@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/Poonsai/pfmon/compare/v0.2.0...v0.2.1) (2026-05-18)
+
+
+### Bug Fixes
+
+* align pfRest endpoint paths to pfRest 2.8.0-RELEASE ([cc28c9f](https://github.com/Poonsai/pfmon/commit/cc28c9f60fc939dd0fafc39a455ec85865cbdcc9))
+
 ## [0.2.0](https://github.com/Poonsai/pfmon/compare/v0.1.0...v0.2.0) (2026-05-18)
 
 
