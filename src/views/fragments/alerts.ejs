@@ -1,0 +1,17 @@
+<% if (pollFailed) { %>
+  <div class="alerts-banner error">
+    <span><strong>Last poll failed:</strong> <%= pollError || 'unknown error' %></span>
+  </div>
+<% } %>
+<% newDevices.forEach(function(d) { %>
+  <div class="alerts-banner">
+    <span>
+      <strong>New device</strong> &mdash;
+      <%= d.hostname || d.vendor || d.mac %> (<%= d.current_ip %><% if (d.interface_name) { %> on <%= d.interface_name %><% } %>)
+    </span>
+    <button class="action"
+            hx-post="/devices/<%= d.id %>/dismiss-new"
+            hx-target="closest .alerts-banner"
+            hx-swap="outerHTML">Dismiss</button>
+  </div>
+<% }); %>

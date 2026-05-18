@@ -1,0 +1,69 @@
+<h2><%= dev.nickname || dev.hostname || dev.mac %></h2>
+<div class="subtitle">
+  <span class="status-dot <%= dev.is_online ? '' : 'offline' %>"></span>
+  <%= dev.is_online ? 'online' : 'offline' %> &middot;
+  last seen <%= formatRelative(dev.last_seen_at, now) %>
+  <% if (dev.interface_friendly || dev.interface_name) { %>
+    &middot; <a href="#" hx-get="/fragments/device-list?vlan=<%= dev.interface_name %>" hx-target="[data-fragment='device-list']" hx-swap="innerHTML"><%= dev.interface_friendly || dev.interface_name %></a>
+  <% } %>
+</div>
+
+<dl>
+  <dt>Nickname</dt>
+  <dd>
+    <form hx-patch="/devices/<%= dev.id %>/nickname" hx-target="closest dd" hx-swap="outerHTML">
+      <input type="text" name="nickname" class="inline-edit" value="<%= dev.nickname || '' %>" placeholder="(unset)">
+      <button class="action" type="submit">Save</button>
+    </form>
+  </dd>
+  <dt>IP / MAC</dt><dd><%= dev.current_ip || '-' %> &middot; <%= dev.mac %></dd>
+  <% if (dev.current_ipv6) { %><dt>IPv6</dt><dd><%= dev.current_ipv6 %></dd><% } %>
+  <dt>Vendor / Type</dt><dd><%= dev.vendor || '-' %> &middot; <%= dev.device_type_guess || 'Unknown' %></dd>
+  <% if (dev.current_lease_type) { %>
+    <dt>DHCP lease</dt><dd><%= dev.current_lease_type %><% if (dev.current_lease_expires_at) { %> &middot; expires <%= formatRelative(dev.current_lease_expires_at, now) %><% } %></dd>
+  <% } %>
+  <dt>First seen</dt><dd><%= formatRelative(dev.first_seen_at, now) %> ago</dd>
+  <dt>Bandwidth now</dt><dd>Down: <%= formatBytes(lastSample.rx_bytes) %>/s &middot; Up: <%= formatBytes(lastSample.tx_bytes) %>/s &middot; <%= lastSample.states_count %> states</dd>
+  <dt>Today</dt><dd><strong>Down: <%= formatBytes(todayBytes.rx) %> &middot; Up: <%= formatBytes(todayBytes.tx) %></strong></dd>
+  <dt>This week</dt><dd>Down: <%= formatBytes(weekBytes.rx) %> &middot; Up: <%= formatBytes(weekBytes.tx) %></dd>
+  <dt>This month</dt><dd>Down: <%= formatBytes(monthBytes.rx) %> &middot; Up: <%= formatBytes(monthBytes.tx) %></dd>
+  <dt>All-time</dt><dd>Down: <%= formatBytes(allTimeBytes.rx) %> &middot; Up: <%= formatBytes(allTimeBytes.tx) %></dd>
+  <dt>Tags</dt>
+  <dd>
+    <span class="tag-list">
+      <% tags.forEach(function(t) { %>
+        <span class="tag-chip"><%= t %>
+          <button hx-delete="/devices/<%= dev.id %>/tags/<%= encodeURIComponent(t) %>" hx-target="closest .tag-chip" hx-swap="outerHTML">x</button>
+        </span>
+      <% }); %>
+    </span>
+    <form hx-post="/devices/<%= dev.id %>/tags" hx-target="previous .tag-list" hx-swap="innerHTML">
+      <input class="inline-edit" type="text" name="tag" placeholder="+tag" style="width: 80px;">
+    </form>
+  </dd>
+  <dt>Notes</dt>
+  <dd>
+    <form hx-patch="/devices/<%= dev.id %>/notes" hx-target="closest dd" hx-swap="outerHTML">
+      <textarea class="inline-edit" name="notes" placeholder="(none)"><%= dev.notes || '' %></textarea>
+      <button class="action" type="submit">Save</button>
+    </form>
+  </dd>
+</dl>
+
+<div class="chart-block">
+  <div class="label">Bandwidth &mdash; last 24h</div>
+  <%- trafficSvg %>
+</div>
+<div class="chart-block">
+  <div class="label">Uptime &mdash; last 24h</div>
+  <%- uptimeSvg %>
+</div>
+
+<% if (countries.length > 0) { %>
+  <div class="chart-block">
+    <div class="label">Countries (top 5)</div>
+    <div style="font-size: 12px;">
+      <% countries.forEach(function(c, i) { %><%= c.country_code %> (<%= c.hit_count %>)<% if (i < countries.length - 1) { %> &middot; <% } %><% }); %>
+    </div>
+  </div>
+<% } %>

@@ -1,0 +1,22 @@
+<div class="wan-summary">
+  <% if (!wan) { %>
+    <p class="subtitle">No WAN interface detected yet. Waiting for poller to discover it.</p>
+  <% } else { %>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px;">
+      <div>
+        <div style="font-size:10px;color:var(--fg-muted);text-transform:uppercase;letter-spacing:0.5px;">WAN &mdash; total internet traffic</div>
+        <div style="font-size:18px;font-weight:bold;margin-top:2px;">Down: <%= formatBytes(today.rx) %> &middot; Up: <%= formatBytes(today.tx) %> <span style="font-size:11px;color:var(--fg-muted);font-weight:normal;">today</span></div>
+        <div style="font-size:11px;color:var(--fg-muted);">This week: <%= formatBytes(week.rx) %> / <%= formatBytes(week.tx) %> &middot; This month: <%= formatBytes(month.rx) %> / <%= formatBytes(month.tx) %></div>
+      </div>
+      <div style="display:flex;gap:4px;font-size:11px;">
+        <% ['24h','7d','30d'].forEach(function(r) { %>
+          <button class="action <%= r === range ? 'primary' : '' %>"
+                  hx-get="/fragments/wan-summary?range=<%= r %>"
+                  hx-target="[data-fragment='wan-summary']"
+                  hx-swap="innerHTML"><%= r %></button>
+        <% }); %>
+      </div>
+    </div>
+    <%- chartSvg %>
+  <% } %>
+</div>
