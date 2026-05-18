@@ -52,6 +52,12 @@ export function buildActionsRouter({ db }) {
     res.send('');
   });
 
+  router.post('/devices/:id/dismiss-new', (req, res) => {
+    const id = Number(req.params.id);
+    db.prepare('UPDATE devices SET new_until_seen_at = NULL WHERE id = ?').run(id);
+    res.send('');
+  });
+
   return router;
 }
 
