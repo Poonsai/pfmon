@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 export function syncInterfaces(db, interfaces) {
   const upsert = db.prepare(`
     INSERT INTO interfaces (pfsense_name, friendly_name, kind, vlan_tag, ipv4_subnet, ipv6_prefix)
@@ -123,6 +125,56 @@ export function recordInterfaceTrafficSamples(db, { stats, now }) {
       const txDelta = prev ? Math.max(0, txTotal - prev.tx_total) : 0;
       upsertPrev.run(iface.id, rx, txTotal);
       insSample.run(iface.id, now, rxDelta, txDelta);
+    }
+  });
+  tx();
+}
+
+export function recordGeoConnections(db, { snapshot, now }) {
+  const selDev = db.prepare('SELECT id FROM devices WHERE mac = ?');
+  const upsert = db.prepare(`
+    INSERT INTO geo_connections (device_id, country_code, last_seen_at, hit_count)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(device_id, country_code) DO UPDATE SET
+      hit_count = hit_count + excluded.hit_count,
+      last_seen_at = excluded.last_seen_at
+  `);
+  const tx = db.transaction(() => {
+    for (const [mac, d] of Object.entries(snapshot.devices)) {
+      const row = selDev.get(mac);
+      if (!row) continue;
+      for (const [cc, n] of Object.entries(d.countries ?? {})) {
+        upsert.run(row.id, cc, now, n);
+      }
+    }
+  });
+  tx();
+}
+
+export function recordFirewallBlocks(db, { blocks }) {
+  const selDevByIp = db.prepare('SELECT id FROM devices WHERE current_ip = ?');
+  const ins = db.prepare(`
+    INSERT OR IGNORE INTO firewall_blocks
+      (ts, device_id, src_ip, src_port, dst_ip, dst_port, proto, direction, dedupe_hash)
+    VALUES (@ts, @device_id, @src_ip, @src_port, @dst_ip, @dst_port, @proto, @direction, @dedupe_hash)
+  `);
+  const tx = db.transaction(() => {
+    for (const b of blocks ?? []) {
+      const dev = b.src_ip ? selDevByIp.get(b.src_ip) : null;
+      const dedupe = createHash('sha256')
+        .update(`${b.ts}|${b.src_ip ?? ''}|${b.src_port ?? ''}|${b.dst_ip ?? ''}|${b.dst_port ?? ''}|${b.proto ?? ''}`)
+        .digest('hex');
+      ins.run({
+        ts: Number(b.ts ?? Math.floor(Date.now() / 1000)),
+        device_id: dev?.id ?? null,
+        src_ip: b.src_ip ?? null,
+        src_port: b.src_port ?? null,
+        dst_ip: b.dst_ip ?? null,
+        dst_port: b.dst_port ?? null,
+        proto: b.proto ?? null,
+        direction: b.direction ?? null,
+        dedupe_hash: dedupe,
+      });
     }
   });
   tx();
