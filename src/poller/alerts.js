@@ -1,7 +1,8 @@
-// Caps and timing for ntfy retry. Exported so tests can introspect them.
+// NTFY_MAX_ATTEMPTS is exported so tests can iterate up to the cap; the other
+// two are internal-only and don't need to leak into the module's public API.
 export const NTFY_MAX_ATTEMPTS = 5;
-export const NTFY_INITIAL_BACKOFF_SEC = 60;
-export const NTFY_MAX_BACKOFF_SEC = 3600;
+const NTFY_INITIAL_BACKOFF_SEC = 60;
+const NTFY_MAX_BACKOFF_SEC = 3600;
 // Node's global fetch has no default timeout. A hung ntfy server would stall
 // the poll indefinitely (the alert fires inside runOnePoll). Cap each POST.
 const NTFY_TIMEOUT_MS = 5000;
