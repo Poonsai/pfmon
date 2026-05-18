@@ -95,5 +95,18 @@ export function buildFragmentsRouter({ db }) {
     });
   });
 
+  router.get('/fragments/alerts', (req, res) => {
+    const newDevices = db.prepare(`
+      SELECT d.id, d.mac, d.vendor, d.hostname, d.current_ip, i.pfsense_name AS interface_name
+      FROM devices d
+      LEFT JOIN interfaces i ON i.id = d.interface_id
+      WHERE d.new_until_seen_at IS NOT NULL
+      ORDER BY d.first_seen_at DESC
+    `).all();
+    const lastPoll = db.prepare('SELECT success, error_msg, ts FROM poll_log ORDER BY ts DESC LIMIT 1').get();
+    const pollFailed = lastPoll && lastPoll.success === 0;
+    res.render('fragments/alerts', { newDevices, pollFailed, pollError: lastPoll?.error_msg ?? null });
+  });
+
   return router;
 }
