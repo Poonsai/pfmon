@@ -67,4 +67,19 @@ describe('GET /fragments/device/:id', () => {
     const $ = cheerio.load(res.text);
     expect($('h2').text()).toContain('TV in living room');
   });
+
+  it('includes current-hour samples in today/week totals before the rollup has fired', async () => {
+    // No rollup yet — only raw samples exist for the device.
+    const now = Math.floor(Date.now() / 1000);
+    db.prepare(`INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, 0)`)
+      .run(id, now - 60, 4_000_000, 1_000_000);
+    db.prepare(`INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, 0)`)
+      .run(id, now - 30, 6_000_000, 1_000_000);
+    expect(db.prepare('SELECT COUNT(*) c FROM traffic_hourly').get().c).toBe(0);
+
+    const res = await request(makeApp(db)).get(`/fragments/device/${id}`);
+    expect(res.status).toBe(200);
+    // Today rx = 10 MB. Should appear somewhere in the rendered detail page.
+    expect(res.text).toMatch(/9\.5 MB/);
+  });
 });
