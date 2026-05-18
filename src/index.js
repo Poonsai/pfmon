@@ -1,4 +1,6 @@
 import express from 'express';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { buildHealthRouter } from './health.js';
 import { loadConfig } from './config.js';
 import { openDb, runMigrations } from './db.js';
@@ -6,6 +8,8 @@ import { loadOui } from './poller/oui.js';
 import { loadGeoIp } from './poller/geoip.js';
 import { createPfsenseClient } from './poller/pfsense.js';
 import { runOnePoll, startScheduler } from './poller/index.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const cfg = loadConfig();
 const db = openDb(cfg.dbPath);
@@ -41,6 +45,11 @@ const sched = startScheduler({
 });
 
 const app = express();
+app.set('view engine', 'ejs');
+app.set('views', join(__dirname, 'views'));
+app.use('/static', express.static(join(__dirname, 'static')));
+app.use(express.urlencoded({ extended: true }));
+
 app.get('/api/health', buildHealthRouter());
 
 const server = app.listen(cfg.port, () => {
