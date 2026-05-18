@@ -1,5 +1,11 @@
 # pfmon
 
+[![ci](https://github.com/Poonsai/pfmon/actions/workflows/ci.yml/badge.svg)](https://github.com/Poonsai/pfmon/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/Poonsai/pfmon?label=release)](https://github.com/Poonsai/pfmon/releases)
+[![ghcr](https://img.shields.io/badge/ghcr.io-pfmon-blue)](https://github.com/Poonsai/pfmon/pkgs/container/pfmon)
+
+**Status: 0.2.0** — see [Releases](https://github.com/Poonsai/pfmon/releases) for the latest.
+
 A self-hosted dashboard for monitoring devices on a home network behind pfSense. Polls the [pfSense REST API addon](https://pfrest.org/) every 30 seconds, stores history in SQLite, and serves a single web page showing current state plus per-device and network-wide trends.
 
 ## What it tracks
