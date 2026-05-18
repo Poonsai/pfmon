@@ -213,15 +213,20 @@ export function buildFragmentsRouter({ db }) {
     }
 
     if (q) {
+      // Escape SQL LIKE wildcards in the user-supplied search query. Without
+      // this, a user typing "%" or "_" would unexpectedly match everything /
+      // any single char. Backslash is also escaped so an ESCAPE '\' clause
+      // works correctly. Parameters are still bound so this is a UX fix, not
+      // a security fix.
       where.push(`(
-        COALESCE(d.nickname,'') LIKE @qLike OR
-        COALESCE(d.hostname,'') LIKE @qLike OR
-        COALESCE(d.current_ip,'') LIKE @qLike OR
-        d.mac LIKE @qLike OR
-        COALESCE(d.vendor,'') LIKE @qLike OR
-        EXISTS (SELECT 1 FROM device_tags t WHERE t.device_id = d.id AND t.tag LIKE @qLike)
+        COALESCE(d.nickname,'') LIKE @qLike ESCAPE '\\' OR
+        COALESCE(d.hostname,'') LIKE @qLike ESCAPE '\\' OR
+        COALESCE(d.current_ip,'') LIKE @qLike ESCAPE '\\' OR
+        d.mac LIKE @qLike ESCAPE '\\' OR
+        COALESCE(d.vendor,'') LIKE @qLike ESCAPE '\\' OR
+        EXISTS (SELECT 1 FROM device_tags t WHERE t.device_id = d.id AND t.tag LIKE @qLike ESCAPE '\\')
       )`);
-      params.qLike = `%${q}%`;
+      params.qLike = `%${q.replace(/[\\%_]/g, '\\$&')}%`;
     }
 
     const now = Math.floor(Date.now() / 1000);
@@ -346,14 +351,28 @@ export function buildFragmentsRouter({ db }) {
     const weekBytes = sumDeviceBytes(db, { deviceId: id, sinceTs: now - 7 * 86400 });
     const monthBytes = sumDeviceBytes(db, { deviceId: id, sinceTs: now - 30 * 86400 });
     const allTimeBytes = sumDeviceBytesAllTime(db, { deviceId: id });
-    const lastSample = db
+    // The bandwidth-now field renders "Down: X/s · Up: Y/s". A sample's
+    // rx_bytes/tx_bytes is the delta over the previous poll interval, not a
+    // per-second rate. Fetch the two most recent samples to derive the actual
+    // interval and convert the delta into bytes/second so the "/s" label is
+    // truthful. When only one sample exists we have no interval to divide by,
+    // so we fall back to 30s — the default poll interval — and round.
+    const recentSamples = db
       .prepare(`
-      SELECT rx_bytes, tx_bytes, states_count
+      SELECT ts, rx_bytes, tx_bytes, states_count
       FROM traffic_samples
       WHERE device_id = ?
-      ORDER BY ts DESC LIMIT 1
+      ORDER BY ts DESC LIMIT 2
     `)
-      .get(id) ?? { rx_bytes: 0, tx_bytes: 0, states_count: 0 };
+      .all(id);
+    const latest = recentSamples[0] ?? { ts: now, rx_bytes: 0, tx_bytes: 0, states_count: 0 };
+    const sampleIntervalSec =
+      recentSamples.length === 2 ? Math.max(1, recentSamples[0].ts - recentSamples[1].ts) : 30;
+    const lastSample = {
+      rx_bytes: Math.round((latest.rx_bytes ?? 0) / sampleIntervalSec),
+      tx_bytes: Math.round((latest.tx_bytes ?? 0) / sampleIntervalSec),
+      states_count: latest.states_count ?? 0,
+    };
     const trafficSamples = db
       .prepare(`
       SELECT hour_bucket AS ts, rx_bytes, tx_bytes

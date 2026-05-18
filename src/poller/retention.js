@@ -11,6 +11,12 @@ export function pruneOldRows(db, { now }) {
     );
     db.prepare('DELETE FROM firewall_blocks WHERE ts < ?').run(now - 7 * SEC_DAY);
     db.prepare('DELETE FROM poll_log WHERE ts < ?').run(now - 7 * SEC_DAY);
+    // The only consumer of uptime_events is the 24h sparkline; older rows are
+    // unused. Without pruning, a flappy device generates an unbounded stream of
+    // online/offline rows forever. 7d matches traffic_samples retention and
+    // leaves slack for any near-term view changes; if all events for a device
+    // get pruned, the sparkline degrades to the device-record `is_online` flag.
+    db.prepare('DELETE FROM uptime_events WHERE ts < ?').run(now - 7 * SEC_DAY);
   });
   tx();
 }

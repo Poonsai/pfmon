@@ -76,6 +76,21 @@ describe('GET /fragments/device-list', () => {
     expect($('table.device-list tbody tr').length).toBe(1);
   });
 
+  it('treats SQL LIKE wildcards in the search query as literals', async () => {
+    // Regression: q=%25 (URL-encoded %) used to act as a SQL wildcard and
+    // match every device. Same for "_" matching any single character.
+    // We count device rows by looking for the [hx-get] attribute — the empty
+    // "No devices match." placeholder row sits inside <tbody> too.
+    const res = await request(makeApp(db)).get('/fragments/device-list?q=%25');
+    const $ = cheerio.load(res.text);
+    expect($('table.device-list tbody tr[hx-get]').length).toBe(0);
+    expect(res.text).toContain('No devices match');
+
+    const res2 = await request(makeApp(db)).get('/fragments/device-list?q=_');
+    const $2 = cheerio.load(res2.text);
+    expect($2('table.device-list tbody tr[hx-get]').length).toBe(0);
+  });
+
   it('uses nickname when present, hostname otherwise', async () => {
     const res = await request(makeApp(db)).get('/fragments/device-list');
     expect(res.text).toContain('jane-iphone');

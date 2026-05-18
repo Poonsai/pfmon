@@ -57,6 +57,22 @@ describe('retention', () => {
     expect(db.prepare('SELECT COUNT(*) c FROM poll_log').get().c).toBe(1);
   });
 
+  it('prunes uptime_events older than 7d so flappy devices cannot grow the table unbounded', () => {
+    const db = setup();
+    const dev_id = db.prepare('SELECT id FROM devices LIMIT 1').get().id;
+    const now = 1_000_000;
+    db.prepare("INSERT INTO uptime_events VALUES (?, ?, 'online')").run(dev_id, now - 30 * 86400);
+    db.prepare("INSERT INTO uptime_events VALUES (?, ?, 'offline')").run(dev_id, now - 8 * 86400);
+    db.prepare("INSERT INTO uptime_events VALUES (?, ?, 'online')").run(dev_id, now - 6 * 86400);
+    db.prepare("INSERT INTO uptime_events VALUES (?, ?, 'offline')").run(dev_id, now);
+    pruneOldRows(db, { now });
+    const remaining = db
+      .prepare('SELECT ts FROM uptime_events ORDER BY ts')
+      .all()
+      .map((r) => r.ts);
+    expect(remaining).toEqual([now - 6 * 86400, now]);
+  });
+
   it('rolls hourly aggregates from traffic_samples', () => {
     const db = setup();
     const dev_id = db.prepare('SELECT id FROM devices LIMIT 1').get().id;

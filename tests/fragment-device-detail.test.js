@@ -93,4 +93,23 @@ describe('GET /fragments/device/:id', () => {
     // Today rx = 10 MB. Should appear somewhere in the rendered detail page.
     expect(res.text).toMatch(/9\.5 MB/);
   });
+
+  it('converts the latest sample delta into a per-second rate for the "/s" label', async () => {
+    // Regression: the bandwidth-now field rendered raw sample deltas labeled
+    // "/s", which lies — a sample's rx_bytes/tx_bytes is bytes-this-interval,
+    // not bytes-per-second. Two samples 30s apart with 600B / 300B in the
+    // latest one should render as 20 B/s down and 10 B/s up.
+    const now = Math.floor(Date.now() / 1000);
+    db.prepare(
+      `INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, 0, 0, 0)`,
+    ).run(id, now - 30);
+    db.prepare(
+      `INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, 0)`,
+    ).run(id, now, 600, 300);
+
+    const res = await request(makeApp(db)).get(`/fragments/device/${id}`);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('Down: 20 B/s');
+    expect(res.text).toContain('Up: 10 B/s');
+  });
 });
