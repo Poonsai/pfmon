@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/Poonsai/pfmon/compare/v0.2.1...v0.2.2) (2026-05-18)
+
+
+### Bug Fixes
+
+* classify interfaces by pfRest id, compute real network address, skip disabled ([e23920e](https://github.com/Poonsai/pfmon/commit/e23920e1a4b22ec733e42599887a62c8eb0c65df))
+
 ## [0.2.1](https://github.com/Poonsai/pfmon/compare/v0.2.0...v0.2.1) (2026-05-18)
 
 
