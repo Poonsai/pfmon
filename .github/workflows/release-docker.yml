@@ -35,6 +35,10 @@ jobs:
         run: |
           RAW="${{ github.event.release.tag_name || format('v{0}', github.event.inputs.tag) }}"
           VERSION="${RAW#v}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "v" ]; then
+            echo "No version resolved (workflow_dispatch invoked without a tag input). Aborting."
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Version: $VERSION"
 
