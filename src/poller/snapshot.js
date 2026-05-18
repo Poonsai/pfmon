@@ -99,8 +99,11 @@ export function buildSnapshot({ arp, dhcpLeases, ndp, firewallStates, interfaces
     const dev = srcIp ? devByIp.get(srcIp) : null;
     if (!dev) continue;
     dev.states_count += 1;
-    dev.rx_bytes_total += Number(st.bytes_in ?? 0);
-    dev.tx_bytes_total += Number(st.bytes_out ?? 0);
+    // bytes_in is forward-flow (source -> destination); bytes_out is the
+    // reverse. The matched device is the state's source, so bytes_in is what
+    // the device transmitted (tx) and bytes_out is what it received (rx).
+    dev.tx_bytes_total += Number(st.bytes_in ?? 0);
+    dev.rx_bytes_total += Number(st.bytes_out ?? 0);
     const cc = lookupCountry(geoRanges ?? [], dstIp);
     if (cc) dev.countries[cc] = (dev.countries[cc] ?? 0) + 1;
   }

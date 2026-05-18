@@ -28,8 +28,11 @@ describe('buildSnapshot', () => {
     expect(d.interface).toBe('lan');
     expect(d.lease_type).toBe('dynamic');
     expect(d.states_count).toBe(2);
-    expect(d.rx_bytes_total).toBe(150);
-    expect(d.tx_bytes_total).toBe(250);
+    // bytes_in is the forward-flow direction (source -> destination). The device
+    // is the source here, so bytes_in is what the device SENT (tx) and bytes_out
+    // is what it RECEIVED (rx).
+    expect(d.tx_bytes_total).toBe(150);
+    expect(d.rx_bytes_total).toBe(250);
     expect(d.countries).toEqual({ US: 1 });
   });
 
@@ -62,9 +65,30 @@ describe('buildSnapshot', () => {
     });
     const d = snap.devices['aa:bb:cc:dd:ee:ff'];
     expect(d.states_count).toBe(2);
-    expect(d.rx_bytes_total).toBe(150);
-    expect(d.tx_bytes_total).toBe(250);
+    expect(d.tx_bytes_total).toBe(150);
+    expect(d.rx_bytes_total).toBe(250);
     expect(d.countries).toEqual({ US: 1 });
+  });
+
+  it('treats a one-way UDP broadcast (bytes_in only) as device upload', () => {
+    // UDP broadcast traffic from a LAN device: bytes flow source -> destination
+    // (the device -> broadcast address) with no reply, so bytes_in is large and
+    // bytes_out is 0. The device's TX must reflect that, not RX. Regression
+    // proof against accidentally swapping the rx/tx mapping back.
+    const snap = buildSnapshot({
+      arp: [{ mac: 'aa:bb:cc:dd:ee:fe', ip: '10.35.35.15', interface: 'lan' }],
+      dhcpLeases: [], ndp: [],
+      firewallStates: [{
+        interface: 'em0', protocol: 'udp', direction: 'in',
+        source: '10.35.35.15:49153', destination: '255.255.255.255:6667',
+        bytes_in: 88_988_800, bytes_out: 0,
+      }],
+      interfaces: [{ pfsense_name: 'lan', ipv4_subnet: '10.35.35.0/24' }],
+      ouiMap: FAKE_OUI, geoRanges: [],
+    });
+    const d = snap.devices['aa:bb:cc:dd:ee:fe'];
+    expect(d.tx_bytes_total).toBe(88_988_800);
+    expect(d.rx_bytes_total).toBe(0);
   });
 
   it('reads ARP rows in pfRest 2.8 shape (mac_address/ip_address)', () => {
