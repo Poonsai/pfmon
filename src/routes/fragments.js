@@ -248,7 +248,9 @@ export function buildFragmentsRouter({ db }) {
 
     let orderBy = 'd.last_seen_at DESC';
     if (sort === 'name') orderBy = "COALESCE(d.nickname, d.hostname, '') COLLATE NOCASE";
-    else if (sort === 'bytes_today') orderBy = `${bytesTodaySql} DESC`;
+    // Reference the SELECT alias rather than the full subquery so SQLite only
+    // computes bytesTodaySql once per row instead of twice (SELECT + ORDER BY).
+    else if (sort === 'bytes_today') orderBy = 'bytes_today DESC';
     // sort === 'ip' is handled in JS below — SQLite can't sort IPv4 numerically.
 
     const rows = db
