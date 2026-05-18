@@ -77,3 +77,53 @@ export function reconcileDevices(db, { snapshot, now, staleAfterSec }) {
   tx();
   return { newDeviceIds };
 }
+
+export function recordTrafficSamples(db, { snapshot, now }) {
+  const selDev = db.prepare('SELECT id FROM devices WHERE mac = ?');
+  const selPrev = db.prepare('SELECT rx_total, tx_total FROM device_counter_state WHERE device_id = ?');
+  const upsertPrev = db.prepare(`
+    INSERT INTO device_counter_state (device_id, rx_total, tx_total) VALUES (?, ?, ?)
+    ON CONFLICT(device_id) DO UPDATE SET rx_total = excluded.rx_total, tx_total = excluded.tx_total
+  `);
+  const insSample = db.prepare(`
+    INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, ?)
+  `);
+  const tx = db.transaction(() => {
+    for (const [mac, d] of Object.entries(snapshot.devices)) {
+      const devRow = selDev.get(mac);
+      if (!devRow) continue;
+      const prev = selPrev.get(devRow.id);
+      const rxDelta = prev ? Math.max(0, d.rx_bytes_total - prev.rx_total) : 0;
+      const txDelta = prev ? Math.max(0, d.tx_bytes_total - prev.tx_total) : 0;
+      upsertPrev.run(devRow.id, d.rx_bytes_total, d.tx_bytes_total);
+      insSample.run(devRow.id, now, rxDelta, txDelta, d.states_count ?? 0);
+    }
+  });
+  tx();
+}
+
+export function recordInterfaceTrafficSamples(db, { stats, now }) {
+  const selIface = db.prepare('SELECT id FROM interfaces WHERE pfsense_name = ?');
+  const selPrev = db.prepare('SELECT rx_total, tx_total FROM interface_counter_state WHERE interface_id = ?');
+  const upsertPrev = db.prepare(`
+    INSERT INTO interface_counter_state (interface_id, rx_total, tx_total) VALUES (?, ?, ?)
+    ON CONFLICT(interface_id) DO UPDATE SET rx_total = excluded.rx_total, tx_total = excluded.tx_total
+  `);
+  const insSample = db.prepare(`
+    INSERT INTO interface_traffic_samples (interface_id, ts, rx_bytes, tx_bytes) VALUES (?, ?, ?, ?)
+  `);
+  const tx = db.transaction(() => {
+    for (const s of stats ?? []) {
+      const iface = selIface.get(s.name);
+      if (!iface) continue;
+      const prev = selPrev.get(iface.id);
+      const rx = Number(s.inbytes ?? 0);
+      const txTotal = Number(s.outbytes ?? 0);
+      const rxDelta = prev ? Math.max(0, rx - prev.rx_total) : 0;
+      const txDelta = prev ? Math.max(0, txTotal - prev.tx_total) : 0;
+      upsertPrev.run(iface.id, rx, txTotal);
+      insSample.run(iface.id, now, rxDelta, txDelta);
+    }
+  });
+  tx();
+}
