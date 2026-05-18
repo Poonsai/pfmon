@@ -35,11 +35,18 @@ async function download(url, outPath) {
   console.log(`[fetch-data] wrote ${outPath}`);
 }
 
-if (existsSync(OUI_PATH) && existsSync(GEO_PATH)) {
-  console.log('[fetch-data] data files already present, skipping');
-  process.exit(0);
+// Skip each file independently. The combined check used to re-download BOTH
+// files when only one was missing, which wasted IEEE's bandwidth for the 7MB
+// OUI CSV every time the (monthly-rotating) GeoIP file disappeared during
+// local dev cleanups.
+if (existsSync(OUI_PATH)) {
+  console.log(`[fetch-data] ${OUI_PATH} already present, skipping`);
+} else {
+  await download(OUI_URL, OUI_PATH);
 }
-
-await download(OUI_URL, OUI_PATH);
-await downloadGz(GEO_URL, GEO_PATH);
+if (existsSync(GEO_PATH)) {
+  console.log(`[fetch-data] ${GEO_PATH} already present, skipping`);
+} else {
+  await downloadGz(GEO_URL, GEO_PATH);
+}
 console.log('[fetch-data] done');
