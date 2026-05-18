@@ -1,10 +1,14 @@
 import { Agent, fetch as undiciFetch } from 'undici';
 
+// Paths verified against pfRest 2.8.0-RELEASE.
+// Earlier versions / other versions may differ; the four below that are
+// known-optional fall back to [] on 404 so a missing endpoint does not
+// break the whole poll cycle.
 const ENDPOINTS = {
   arp: '/api/v2/diagnostics/arp_table',
-  dhcpLeases: '/api/v2/services/dhcp_server/leases',
+  dhcpLeases: '/api/v2/status/dhcp_server/leases',
   firewallStates: '/api/v2/firewall/states',
-  interfaces: '/api/v2/interface',
+  interfaces: '/api/v2/interfaces',
   interfaceStats: '/api/v2/status/interfaces',
   ndp: '/api/v2/diagnostics/ndp_table',
   filterLog: '/api/v2/diagnostics/log/firewall',
@@ -39,19 +43,21 @@ export function createPfsenseClient({ baseUrl, apiKey, verifyTls, timeoutMs = 10
     }
   }
 
+  async function callOptional(path) {
+    try { return await call(path); }
+    catch (e) {
+      if (/404/.test(e.message)) return [];
+      throw e;
+    }
+  }
+
   return {
     fetchArpTable: () => call(ENDPOINTS.arp),
     fetchDhcpLeases: () => call(ENDPOINTS.dhcpLeases),
     fetchFirewallStates: () => call(ENDPOINTS.firewallStates),
     fetchInterfaces: () => call(ENDPOINTS.interfaces),
     fetchInterfaceStats: () => call(ENDPOINTS.interfaceStats),
-    fetchNdpTable: () => call(ENDPOINTS.ndp),
-    fetchFilterLogBlocks: async () => {
-      try { return await call(ENDPOINTS.filterLog); }
-      catch (e) {
-        if (/404/.test(e.message)) return [];
-        throw e;
-      }
-    },
+    fetchNdpTable: () => callOptional(ENDPOINTS.ndp),
+    fetchFilterLogBlocks: () => callOptional(ENDPOINTS.filterLog),
   };
 }

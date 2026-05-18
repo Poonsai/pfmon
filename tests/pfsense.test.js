@@ -12,7 +12,7 @@ beforeAll(() => new Promise((resolve) => {
   });
   app.get('/api/v2/diagnostics/arp_table', (req, res) =>
     res.json({ data: [{ mac: 'aa:bb:cc:dd:ee:ff', ip: '10.0.0.42', hostname: 'tv', interface: 'lan' }] }));
-  app.get('/api/v2/interface', (req, res) =>
+  app.get('/api/v2/interfaces', (req, res) =>
     res.json({ data: [
       { if: 'wan', descr: 'WAN' },
       { if: 'lan', descr: 'LAN', ipv4_address: '10.0.0.1', ipv4_subnet: '24' },
