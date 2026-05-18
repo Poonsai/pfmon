@@ -54,7 +54,7 @@ app.use('/static', express.static(join(__dirname, 'static')));
 app.use(express.urlencoded({ extended: true }));
 
 app.get('/api/health', buildHealthRouter());
-app.use(buildPageRouter());
+app.use(buildPageRouter({ db }));
 app.use(buildFragmentsRouter({ db }));
 app.use(buildActionsRouter({ db }));
 

@@ -40,6 +40,9 @@
     </select>
     <select name="vlan">
       <option value="">VLAN: All</option>
+      <% (typeof vlans !== 'undefined' ? vlans : []).forEach(function(v) { %>
+        <option value="<%= v.pfsense_name %>"><%= v.friendly_name || v.pfsense_name %></option>
+      <% }); %>
     </select>
     <select name="sort">
       <option value="last_seen">Sort: last seen</option>
