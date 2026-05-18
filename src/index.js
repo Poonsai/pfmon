@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { buildHealthRouter } from './health.js';
 import { buildPageRouter } from './routes/page.js';
+import { buildFragmentsRouter } from './routes/fragments.js';
 import { loadConfig } from './config.js';
 import { openDb, runMigrations } from './db.js';
 import { loadOui } from './poller/oui.js';
@@ -53,6 +54,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.get('/api/health', buildHealthRouter());
 app.use(buildPageRouter());
+app.use(buildFragmentsRouter({ db }));
 
 const server = app.listen(cfg.port, () => {
   console.log(JSON.stringify({ level: 'info', msg: 'http listening', port: cfg.port }));

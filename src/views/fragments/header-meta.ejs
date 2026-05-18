@@ -1,0 +1,1 @@
+<%= total %> devices &middot; <%= online %> online &middot; <%= vlans %> VLAN<%= vlans === 1 ? '' : 's' %> &middot; <% if (freshness === null) { %>never polled<% } else { %>data <%= freshness %>s old<% } %>
