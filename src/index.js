@@ -1,18 +1,56 @@
 import express from 'express';
 import { buildHealthRouter } from './health.js';
+import { loadConfig } from './config.js';
+import { openDb, runMigrations } from './db.js';
+import { loadOui } from './poller/oui.js';
+import { loadGeoIp } from './poller/geoip.js';
+import { createPfsenseClient } from './poller/pfsense.js';
+import { runOnePoll, startScheduler } from './poller/index.js';
+
+const cfg = loadConfig();
+const db = openDb(cfg.dbPath);
+runMigrations(db);
+
+const ouiMap = loadOui(cfg.ouiPath);
+const geoRanges = loadGeoIp(cfg.geoIpPath);
+
+const client = createPfsenseClient({
+  baseUrl: cfg.pfsenseUrl,
+  apiKey: cfg.pfsenseApiKey,
+  verifyTls: cfg.pfsenseVerifyTls,
+});
+
+console.log(JSON.stringify({ level: 'info', msg: 'running initial sync poll' }));
+const first = await runOnePoll({
+  db, client, ouiMap, geoRanges,
+  now: Math.floor(Date.now() / 1000),
+  staleAfterSec: cfg.pollIntervalSec * 10,
+  ntfyTopicUrl: cfg.ntfyTopicUrl,
+  graceSec: cfg.newDeviceGraceMinutes * 60,
+  wanOverride: cfg.wanInterfaceName,
+});
+console.log(JSON.stringify({ level: 'info', msg: 'initial poll done', ...first }));
+
+const sched = startScheduler({
+  db, client, ouiMap, geoRanges,
+  intervalSec: cfg.pollIntervalSec,
+  staleAfterSec: cfg.pollIntervalSec * 10,
+  ntfyTopicUrl: cfg.ntfyTopicUrl,
+  graceSec: cfg.newDeviceGraceMinutes * 60,
+  wanOverride: cfg.wanInterfaceName,
+});
 
 const app = express();
-const port = Number(process.env.PORT ?? 8080);
-
 app.get('/api/health', buildHealthRouter());
 
-const server = app.listen(port, () => {
-  console.log(JSON.stringify({ level: 'info', msg: 'http listening', port }));
+const server = app.listen(cfg.port, () => {
+  console.log(JSON.stringify({ level: 'info', msg: 'http listening', port: cfg.port }));
 });
 
 function shutdown(signal) {
   console.log(JSON.stringify({ level: 'info', msg: 'shutdown', signal }));
-  server.close(() => process.exit(0));
+  sched.stop();
+  server.close(() => { db.close(); process.exit(0); });
 }
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
