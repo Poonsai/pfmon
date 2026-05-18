@@ -1,6 +1,6 @@
 {
   "name": "pfmon",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Self-hosted pfSense network device monitor dashboard",
   "type": "module",
   "main": "src/index.js",
