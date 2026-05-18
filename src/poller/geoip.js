@@ -13,7 +13,25 @@ function ipv4ToNum(ip) {
 }
 
 export function loadGeoIp(path) {
-  const text = readFileSync(path, 'utf8');
+  // Downloaded at docker build time; missing locally is a "forgot to run
+  // npm run fetch-data" condition, not a fatal error — country lookups are
+  // a nice-to-have, not a load-bearing feature.
+  let text;
+  try {
+    text = readFileSync(path, 'utf8');
+  } catch (e) {
+    if (e?.code === 'ENOENT') {
+      console.log(
+        JSON.stringify({
+          level: 'warn',
+          msg: 'GeoIP file not found, country lookups will be empty',
+          path,
+        }),
+      );
+      return [];
+    }
+    throw e;
+  }
   const lines = text.split(/\r?\n/);
   const ranges = [];
   for (const line of lines) {

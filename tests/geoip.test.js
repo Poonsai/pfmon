@@ -16,4 +16,14 @@ describe('geoip', () => {
     expect(lookupCountry(idx, '1.1.1.42')).toBe('AU');
     expect(lookupCountry(idx, '203.0.113.5')).toBeNull();
   });
+
+  it('returns an empty range list when the GeoIP file is missing', () => {
+    // Regression: loadGeoIp used to throw an unhandled ENOENT and kill the
+    // process when local-dev users hadn't run `npm run fetch-data`. Country
+    // lookup degrades gracefully to "no country known" for every IP.
+    const missing = join(tmpdir(), `geo-does-not-exist-${Date.now()}.csv`);
+    const idx = loadGeoIp(missing);
+    expect(idx).toEqual([]);
+    expect(lookupCountry(idx, '8.8.8.8')).toBeNull();
+  });
 });

@@ -1,7 +1,26 @@
 import { readFileSync } from 'node:fs';
 
 export function loadOui(path) {
-  const text = readFileSync(path, 'utf8');
+  // The OUI file is downloaded at docker build time, but local-dev users who
+  // forgot to run `npm run fetch-data` shouldn't be greeted with a stack trace.
+  // Vendor lookup is non-essential — dashboards still work without it, just
+  // with empty vendor cells.
+  let text;
+  try {
+    text = readFileSync(path, 'utf8');
+  } catch (e) {
+    if (e?.code === 'ENOENT') {
+      console.log(
+        JSON.stringify({
+          level: 'warn',
+          msg: 'OUI file not found, vendor lookups will be empty',
+          path,
+        }),
+      );
+      return new Map();
+    }
+    throw e;
+  }
   const lines = text.split(/\r?\n/);
   const map = new Map();
   for (let i = 1; i < lines.length; i++) {
