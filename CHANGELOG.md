@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.4](https://github.com/Poonsai/pfmon/compare/v0.2.3...v0.2.4) (2026-05-18)
+
+
+### Bug Fixes
+
+* don't crash the poller when OUI/GeoIP files are missing ([7a82bd5](https://github.com/Poonsai/pfmon/commit/7a82bd539ec2ed3e8f68bf3d1f9a9f425015aa8a))
+* prune uptime_events, show true bandwidth/s, escape LIKE wildcards ([5a4ead2](https://github.com/Poonsai/pfmon/commit/5a4ead2d6d135a92a776b2bcbf29fc8d09d2b293))
+
 ## [0.2.3](https://github.com/Poonsai/pfmon/compare/v0.2.2...v0.2.3) (2026-05-18)
 
 
