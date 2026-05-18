@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import Database from 'better-sqlite3';
 import express from 'express';
 import request from 'supertest';
-import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { runMigrations } from '../src/db.js';
 import { buildActionsRouter } from '../src/routes/actions.js';
 

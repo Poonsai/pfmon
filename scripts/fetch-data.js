@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { mkdirSync, createWriteStream, existsSync } from 'node:fs';
-import { pipeline } from 'node:stream/promises';
+import { createWriteStream, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import { createGunzip } from 'node:zlib';
 

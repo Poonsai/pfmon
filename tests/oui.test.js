@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { loadOui, lookupVendor } from '../src/poller/oui.js';
 import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { loadOui, lookupVendor } from '../src/poller/oui.js';
 
 describe('oui', () => {
   it('looks up vendor by MAC prefix', () => {

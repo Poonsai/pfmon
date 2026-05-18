@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import * as cheerio from 'cheerio';
 import express from 'express';
 import request from 'supertest';
-import * as cheerio from 'cheerio';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { describe, expect, it } from 'vitest';
 import { buildPageRouter } from '../src/routes/page.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

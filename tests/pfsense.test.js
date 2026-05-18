@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import express from 'express';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPfsenseClient } from '../src/poller/pfsense.js';
 
 let server, baseUrl;

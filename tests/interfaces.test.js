@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { normalizeInterfaces } from '../src/poller/interfaces.js';
 
 describe('normalizeInterfaces (pfRest 2.8 shape)', () => {

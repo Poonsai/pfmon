@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { loadGeoIp, lookupCountry } from '../src/poller/geoip.js';
 import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { loadGeoIp, lookupCountry } from '../src/poller/geoip.js';
 
 describe('geoip', () => {
   it('looks up country by IPv4', () => {

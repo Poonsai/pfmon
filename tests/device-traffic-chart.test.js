@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { renderDeviceTrafficSvg } from '../src/charts/device-traffic-chart.js';
 
 describe('renderDeviceTrafficSvg', () => {

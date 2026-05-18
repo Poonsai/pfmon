@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import Database from 'better-sqlite3';
+import * as cheerio from 'cheerio';
 import express from 'express';
 import request from 'supertest';
-import * as cheerio from 'cheerio';
-import Database from 'better-sqlite3';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { describe, expect, it } from 'vitest';
 import { runMigrations } from '../src/db.js';
 import { buildFragmentsRouter } from '../src/routes/fragments.js';
 

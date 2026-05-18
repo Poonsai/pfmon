@@ -1,7 +1,7 @@
-import { describe, it, expect, afterEach } from 'vitest';
 import { existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 import { openDb, runMigrations } from '../src/db.js';
 
 const tmpPath = () => join(tmpdir(), `pfmon-test-${Date.now()}-${Math.random()}.db`);
