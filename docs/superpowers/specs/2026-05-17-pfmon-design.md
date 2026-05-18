@@ -202,6 +202,20 @@ Daily cron at 03:00 local time:
 
 Runs every `POLL_INTERVAL_SECONDS` (default 30s).
 
+### Authentication
+
+All requests to pfRest include the API key in an `X-API-Key` header:
+
+```
+X-API-Key: <PFSENSE_API_KEY>
+```
+
+The key is generated on the pfSense side via **System -> REST API -> Authentication / API Keys** (exact UI path varies by pfRest version). pfRest supports other auth modes (Local Database, JWT); this design uses **API Key** mode because it is stateless, has no refresh cycle, and is the appropriate choice for a headless service.
+
+TLS verification is on by default (`PFSENSE_VERIFY_TLS=true`). Set it to `false` only when pfSense uses a self-signed certificate that you have not added to the container's trust store. Connection failures and 4xx/5xx responses fall through to the standard poll-failure handling described below.
+
+### Polling steps
+
 1. **Fetch from pfSense in parallel:**
    - ARP table (`/api/v2/diagnostics/arp_table`)
    - DHCP leases (one call per configured DHCP server)
@@ -303,7 +317,7 @@ Environment variables (set in docker-compose):
 
 ```
 PFSENSE_URL                 https://pfsense.lan         required
-PFSENSE_API_KEY             <pfRest API key>            required
+PFSENSE_API_KEY             <pfRest API key>            required; sent as X-API-Key header
 PFSENSE_VERIFY_TLS          true                        default true
 POLL_INTERVAL_SECONDS       30                          default 30
 NTFY_TOPIC_URL              https://ntfy.sh/<topic>     optional
