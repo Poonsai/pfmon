@@ -1,0 +1,39 @@
+{
+  "name": "pfmon",
+  "version": "0.1.0",
+  "description": "Self-hosted pfSense network device monitor dashboard",
+  "type": "module",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "fetch-data": "node scripts/fetch-data.js",
+    "prepare": "[ -z \"$CI\" ] && husky || true"
+  },
+  "keywords": [
+    "pfsense",
+    "network",
+    "monitoring",
+    "dashboard"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "express": "^5.2.1",
+    "node-cron": "^4.2.1",
+    "undici": "^6.20.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.0.1",
+    "@commitlint/config-conventional": "^21.0.1",
+    "cheerio": "^1.2.0",
+    "husky": "^9.1.7",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.6"
+  }
+}

@@ -1,0 +1,17 @@
+node_modules
+.git
+.github
+data
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+*.log
+coverage
+tests
+docs
+.superpowers
+.husky
+.vscode
+.idea
