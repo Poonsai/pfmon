@@ -20,13 +20,22 @@ function makeApp(db) {
 
 function seed(db) {
   const now = Math.floor(Date.now() / 1000);
-  db.prepare(`INSERT INTO interfaces (pfsense_name, friendly_name, kind) VALUES ('wan', 'WAN', 'wan')`).run();
+  db.prepare(
+    `INSERT INTO interfaces (pfsense_name, friendly_name, kind) VALUES ('wan', 'WAN', 'wan')`,
+  ).run();
   const wanId = db.prepare("SELECT id FROM interfaces WHERE pfsense_name='wan'").get().id;
   const dayStart = now - 24 * 3600;
   for (let i = 0; i < 24; i++) {
     const hour = dayStart + i * 3600;
     db.prepare(`INSERT INTO interface_traffic_hourly (interface_id, hour_bucket, rx_bytes, tx_bytes, peak_rx_rate, peak_tx_rate)
-                VALUES (?, ?, ?, ?, ?, ?)`).run(wanId, hour, 1000 * (i + 1), 200 * (i + 1), 100, 30);
+                VALUES (?, ?, ?, ?, ?, ?)`).run(
+      wanId,
+      hour,
+      1000 * (i + 1),
+      200 * (i + 1),
+      100,
+      30,
+    );
   }
 }
 
@@ -61,15 +70,28 @@ describe('GET /fragments/wan-summary', () => {
     // Fresh-start scenario: poller has written samples but no hourly rollup yet.
     const fresh = new Database(':memory:');
     runMigrations(fresh);
-    fresh.prepare(`INSERT INTO interfaces (pfsense_name, friendly_name, kind) VALUES ('wan','WAN','wan')`).run();
+    fresh
+      .prepare(
+        `INSERT INTO interfaces (pfsense_name, friendly_name, kind) VALUES ('wan','WAN','wan')`,
+      )
+      .run();
     const wanId = fresh.prepare("SELECT id FROM interfaces WHERE pfsense_name='wan'").get().id;
     const now = Math.floor(Date.now() / 1000);
     // Three samples in the current hour, no hourly rows.
-    fresh.prepare(`INSERT INTO interface_traffic_samples (interface_id, ts, rx_bytes, tx_bytes) VALUES (?, ?, ?, ?)`)
+    fresh
+      .prepare(
+        `INSERT INTO interface_traffic_samples (interface_id, ts, rx_bytes, tx_bytes) VALUES (?, ?, ?, ?)`,
+      )
       .run(wanId, now - 90, 5_000_000, 1_000_000);
-    fresh.prepare(`INSERT INTO interface_traffic_samples (interface_id, ts, rx_bytes, tx_bytes) VALUES (?, ?, ?, ?)`)
+    fresh
+      .prepare(
+        `INSERT INTO interface_traffic_samples (interface_id, ts, rx_bytes, tx_bytes) VALUES (?, ?, ?, ?)`,
+      )
       .run(wanId, now - 60, 3_000_000, 500_000);
-    fresh.prepare(`INSERT INTO interface_traffic_samples (interface_id, ts, rx_bytes, tx_bytes) VALUES (?, ?, ?, ?)`)
+    fresh
+      .prepare(
+        `INSERT INTO interface_traffic_samples (interface_id, ts, rx_bytes, tx_bytes) VALUES (?, ?, ?, ?)`,
+      )
       .run(wanId, now - 30, 2_000_000, 250_000);
     expect(fresh.prepare('SELECT COUNT(*) c FROM interface_traffic_hourly').get().c).toBe(0);
 
@@ -86,15 +108,24 @@ describe('GET /fragments/wan-summary', () => {
   it('combines past hourly buckets with current in-progress samples without double counting', async () => {
     const mixed = new Database(':memory:');
     runMigrations(mixed);
-    mixed.prepare(`INSERT INTO interfaces (pfsense_name, friendly_name, kind) VALUES ('wan','WAN','wan')`).run();
+    mixed
+      .prepare(
+        `INSERT INTO interfaces (pfsense_name, friendly_name, kind) VALUES ('wan','WAN','wan')`,
+      )
+      .run();
     const wanId = mixed.prepare("SELECT id FROM interfaces WHERE pfsense_name='wan'").get().id;
     const now = Math.floor(Date.now() / 1000);
     const hourStart = Math.floor(now / 3600) * 3600;
     // Past completed hour: 100 MiB rx, 10 MiB tx.
-    mixed.prepare(`INSERT INTO interface_traffic_hourly (interface_id, hour_bucket, rx_bytes, tx_bytes, peak_rx_rate, peak_tx_rate)
-                   VALUES (?, ?, ?, ?, ?, ?)`).run(wanId, hourStart - 3600, 100 * 1024 * 1024, 10 * 1024 * 1024, 0, 0);
+    mixed
+      .prepare(`INSERT INTO interface_traffic_hourly (interface_id, hour_bucket, rx_bytes, tx_bytes, peak_rx_rate, peak_tx_rate)
+                   VALUES (?, ?, ?, ?, ?, ?)`)
+      .run(wanId, hourStart - 3600, 100 * 1024 * 1024, 10 * 1024 * 1024, 0, 0);
     // Current in-progress hour: 25 MiB rx, 5 MiB tx from samples.
-    mixed.prepare(`INSERT INTO interface_traffic_samples (interface_id, ts, rx_bytes, tx_bytes) VALUES (?, ?, ?, ?)`)
+    mixed
+      .prepare(
+        `INSERT INTO interface_traffic_samples (interface_id, ts, rx_bytes, tx_bytes) VALUES (?, ?, ?, ?)`,
+      )
       .run(wanId, hourStart + 60, 25 * 1024 * 1024, 5 * 1024 * 1024);
 
     const res = await request(makeApp(mixed)).get('/fragments/wan-summary');

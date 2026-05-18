@@ -9,7 +9,9 @@ function setup() {
   const db = new Database(':memory:');
   runMigrations(db);
   const now = Math.floor(Date.now() / 1000);
-  db.prepare(`INSERT INTO devices (mac, is_online, first_seen_at, last_seen_at) VALUES ('a',1,?,?)`).run(now, now);
+  db.prepare(
+    `INSERT INTO devices (mac, is_online, first_seen_at, last_seen_at) VALUES ('a',1,?,?)`,
+  ).run(now, now);
   return { db, id: db.prepare("SELECT id FROM devices WHERE mac='a'").get().id };
 }
 
@@ -23,16 +25,25 @@ function makeApp(db) {
 describe('device tags', () => {
   it('POST adds a new tag and returns the updated tag list HTML', async () => {
     const { db, id } = setup();
-    const res = await request(makeApp(db)).post(`/devices/${id}/tags`).type('form').send({ tag: 'iot' });
+    const res = await request(makeApp(db))
+      .post(`/devices/${id}/tags`)
+      .type('form')
+      .send({ tag: 'iot' });
     expect(res.status).toBe(200);
     expect(res.text).toContain('iot');
-    const tags = db.prepare('SELECT tag FROM device_tags WHERE device_id = ?').all(id).map(r => r.tag);
+    const tags = db
+      .prepare('SELECT tag FROM device_tags WHERE device_id = ?')
+      .all(id)
+      .map((r) => r.tag);
     expect(tags).toContain('iot');
   });
 
   it('POST rejects empty tags', async () => {
     const { db, id } = setup();
-    const res = await request(makeApp(db)).post(`/devices/${id}/tags`).type('form').send({ tag: '   ' });
+    const res = await request(makeApp(db))
+      .post(`/devices/${id}/tags`)
+      .type('form')
+      .send({ tag: '   ' });
     expect(res.status).toBe(400);
   });
 

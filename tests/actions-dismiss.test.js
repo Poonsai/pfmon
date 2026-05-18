@@ -17,11 +17,15 @@ describe('POST /devices/:id/dismiss-new', () => {
     const db = new Database(':memory:');
     runMigrations(db);
     const now = Math.floor(Date.now() / 1000);
-    db.prepare(`INSERT INTO devices (mac, is_online, first_seen_at, last_seen_at, new_until_seen_at) VALUES ('a',1,?,?,?)`).run(now, now, now);
+    db.prepare(
+      `INSERT INTO devices (mac, is_online, first_seen_at, last_seen_at, new_until_seen_at) VALUES ('a',1,?,?,?)`,
+    ).run(now, now, now);
     const id = db.prepare("SELECT id FROM devices WHERE mac='a'").get().id;
     const res = await request(makeApp(db)).post(`/devices/${id}/dismiss-new`);
     expect(res.status).toBe(200);
     expect(res.text.trim()).toBe('');
-    expect(db.prepare('SELECT new_until_seen_at FROM devices WHERE id=?').get(id).new_until_seen_at).toBeNull();
+    expect(
+      db.prepare('SELECT new_until_seen_at FROM devices WHERE id=?').get(id).new_until_seen_at,
+    ).toBeNull();
   });
 });

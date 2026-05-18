@@ -31,7 +31,8 @@ export function loadGeoIp(path) {
 export function lookupCountry(ranges, ip) {
   const n = ipv4ToNum(ip);
   if (n == null) return null;
-  let lo = 0, hi = ranges.length - 1;
+  let lo = 0,
+    hi = ranges.length - 1;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
     const [s, e, cc] = ranges[mid];

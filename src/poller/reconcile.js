@@ -11,14 +11,18 @@ export function syncInterfaces(db, interfaces) {
       ipv4_subnet = excluded.ipv4_subnet,
       ipv6_prefix = excluded.ipv6_prefix
   `);
-  const tx = db.transaction((rows) => { for (const r of rows) upsert.run(r); });
+  const tx = db.transaction((rows) => {
+    for (const r of rows) upsert.run(r);
+  });
   tx(interfaces);
 }
 
 export function reconcileDevices(db, { snapshot, now, staleAfterSec }) {
   const newDeviceIds = [];
 
-  const selByMac = db.prepare('SELECT id, is_online, first_seen_at, alerted_at FROM devices WHERE mac = ?');
+  const selByMac = db.prepare(
+    'SELECT id, is_online, first_seen_at, alerted_at FROM devices WHERE mac = ?',
+  );
   const selIface = db.prepare('SELECT id FROM interfaces WHERE pfsense_name = ?');
   const insDev = db.prepare(`
     INSERT INTO devices (mac, vendor, hostname, current_ip, current_ipv6, interface_id,
@@ -43,7 +47,9 @@ export function reconcileDevices(db, { snapshot, now, staleAfterSec }) {
     WHERE id = @id
   `);
   const markOffline = db.prepare('UPDATE devices SET is_online = 0 WHERE id = ? AND is_online = 1');
-  const insUptime = db.prepare('INSERT INTO uptime_events (device_id, ts, status) VALUES (?, ?, ?)');
+  const insUptime = db.prepare(
+    'INSERT INTO uptime_events (device_id, ts, status) VALUES (?, ?, ?)',
+  );
   const findStale = db.prepare('SELECT id FROM devices WHERE is_online = 1 AND last_seen_at < ?');
 
   const tx = db.transaction(() => {
@@ -52,9 +58,16 @@ export function reconcileDevices(db, { snapshot, now, staleAfterSec }) {
       const existing = selByMac.get(mac);
       if (!existing) {
         const info = insDev.run({
-          mac, vendor: dev.vendor, hostname: dev.hostname, ip: dev.ip, ipv6: dev.ipv6,
-          interface_id, lease_type: dev.lease_type, lease_expires_at: dev.lease_expires_at,
-          device_type_guess: dev.device_type_guess, now,
+          mac,
+          vendor: dev.vendor,
+          hostname: dev.hostname,
+          ip: dev.ip,
+          ipv6: dev.ipv6,
+          interface_id,
+          lease_type: dev.lease_type,
+          lease_expires_at: dev.lease_expires_at,
+          device_type_guess: dev.device_type_guess,
+          now,
         });
         const id = info.lastInsertRowid;
         insUptime.run(id, now, 'online');
@@ -62,9 +75,15 @@ export function reconcileDevices(db, { snapshot, now, staleAfterSec }) {
       } else {
         updDev.run({
           id: existing.id,
-          vendor: dev.vendor, hostname: dev.hostname, ip: dev.ip, ipv6: dev.ipv6,
-          interface_id, lease_type: dev.lease_type, lease_expires_at: dev.lease_expires_at,
-          device_type_guess: dev.device_type_guess, now,
+          vendor: dev.vendor,
+          hostname: dev.hostname,
+          ip: dev.ip,
+          ipv6: dev.ipv6,
+          interface_id,
+          lease_type: dev.lease_type,
+          lease_expires_at: dev.lease_expires_at,
+          device_type_guess: dev.device_type_guess,
+          now,
         });
         if (existing.is_online === 0) insUptime.run(existing.id, now, 'online');
       }
@@ -82,7 +101,9 @@ export function reconcileDevices(db, { snapshot, now, staleAfterSec }) {
 
 export function recordTrafficSamples(db, { snapshot, now }) {
   const selDev = db.prepare('SELECT id FROM devices WHERE mac = ?');
-  const selPrev = db.prepare('SELECT rx_total, tx_total FROM device_counter_state WHERE device_id = ?');
+  const selPrev = db.prepare(
+    'SELECT rx_total, tx_total FROM device_counter_state WHERE device_id = ?',
+  );
   const upsertPrev = db.prepare(`
     INSERT INTO device_counter_state (device_id, rx_total, tx_total) VALUES (?, ?, ?)
     ON CONFLICT(device_id) DO UPDATE SET rx_total = excluded.rx_total, tx_total = excluded.tx_total
@@ -106,7 +127,9 @@ export function recordTrafficSamples(db, { snapshot, now }) {
 
 export function recordInterfaceTrafficSamples(db, { stats, now }) {
   const selIface = db.prepare('SELECT id FROM interfaces WHERE pfsense_name = ?');
-  const selPrev = db.prepare('SELECT rx_total, tx_total FROM interface_counter_state WHERE interface_id = ?');
+  const selPrev = db.prepare(
+    'SELECT rx_total, tx_total FROM interface_counter_state WHERE interface_id = ?',
+  );
   const upsertPrev = db.prepare(`
     INSERT INTO interface_counter_state (interface_id, rx_total, tx_total) VALUES (?, ?, ?)
     ON CONFLICT(interface_id) DO UPDATE SET rx_total = excluded.rx_total, tx_total = excluded.tx_total
@@ -162,7 +185,9 @@ export function recordFirewallBlocks(db, { blocks }) {
     for (const b of blocks ?? []) {
       const dev = b.src_ip ? selDevByIp.get(b.src_ip) : null;
       const dedupe = createHash('sha256')
-        .update(`${b.ts}|${b.src_ip ?? ''}|${b.src_port ?? ''}|${b.dst_ip ?? ''}|${b.dst_port ?? ''}|${b.proto ?? ''}`)
+        .update(
+          `${b.ts}|${b.src_ip ?? ''}|${b.src_port ?? ''}|${b.dst_ip ?? ''}|${b.dst_port ?? ''}|${b.proto ?? ''}`,
+        )
         .digest('hex');
       ins.run({
         ts: Number(b.ts ?? Math.floor(Date.now() / 1000)),

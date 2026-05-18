@@ -22,9 +22,9 @@ function computeNetwork(ip, prefixBits) {
   const bits = Number(prefixBits);
   if (!Number.isFinite(bits) || bits < 0 || bits > 32) return null;
   const parts = ip.split('.').map(Number);
-  if (parts.length !== 4 || parts.some(p => !Number.isFinite(p) || p < 0 || p > 255)) return null;
+  if (parts.length !== 4 || parts.some((p) => !Number.isFinite(p) || p < 0 || p > 255)) return null;
   const n = ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
-  const mask = bits === 0 ? 0 : ((0xffffffff << (32 - bits)) >>> 0);
+  const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
   const network = (n & mask) >>> 0;
   return [
     (network >>> 24) & 0xff,
@@ -52,8 +52,8 @@ function subnet(iface) {
 
 export function normalizeInterfaces(payload, { wanOverride } = {}) {
   return (payload ?? [])
-    .filter(i => i.enable !== false) // skip disabled interfaces (e.g. disabled OpenVPN)
-    .map(i => {
+    .filter((i) => i.enable !== false) // skip disabled interfaces (e.g. disabled OpenVPN)
+    .map((i) => {
       const canonicalName = i.id ?? i.if ?? i.name;
       return {
         pfsense_name: canonicalName,
@@ -64,5 +64,5 @@ export function normalizeInterfaces(payload, { wanOverride } = {}) {
         ipv6_prefix: i.ipv6_prefix ?? null,
       };
     })
-    .filter(i => i.pfsense_name);
+    .filter((i) => i.pfsense_name);
 }

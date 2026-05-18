@@ -88,10 +88,12 @@ describe('GET /fragments/device-list', () => {
     const janeId = db.prepare("SELECT id FROM devices WHERE mac='aa:bb:cc:dd:ee:02'").get().id;
     const echoId = db.prepare("SELECT id FROM devices WHERE mac='aa:bb:cc:dd:ee:04'").get().id;
     const now = Math.floor(Date.now() / 1000);
-    db.prepare(`INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, 0)`)
-      .run(janeId, now - 30, 50_000_000, 5_000_000);
-    db.prepare(`INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, 0)`)
-      .run(echoId, now - 30, 100, 100);
+    db.prepare(
+      `INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, 0)`,
+    ).run(janeId, now - 30, 50_000_000, 5_000_000);
+    db.prepare(
+      `INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, 0)`,
+    ).run(echoId, now - 30, 100, 100);
 
     const res = await request(makeApp(db)).get('/fragments/device-list?sort=bytes_today');
     expect(res.status).toBe(200);

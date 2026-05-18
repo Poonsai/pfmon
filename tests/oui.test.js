@@ -7,10 +7,11 @@ import { join } from 'node:path';
 describe('oui', () => {
   it('looks up vendor by MAC prefix', () => {
     const fixture = join(tmpdir(), `oui-${Date.now()}.csv`);
-    writeFileSync(fixture,
+    writeFileSync(
+      fixture,
       'Registry,Assignment,Organization Name,Organization Address\n' +
-      'MA-L,001CB3,Apple Inc.,1 Infinite Loop\n' +
-      'MA-L,28EF01,Espressif Inc.,addr\n'
+        'MA-L,001CB3,Apple Inc.,1 Infinite Loop\n' +
+        'MA-L,28EF01,Espressif Inc.,addr\n',
     );
     const map = loadOui(fixture);
     expect(lookupVendor(map, '00:1c:b3:aa:bb:cc')).toBe('Apple Inc.');

@@ -11,8 +11,8 @@ describe('db', () => {
   afterEach(() => {
     for (const p of created) {
       if (existsSync(p)) rmSync(p);
-      if (existsSync(p + '-shm')) rmSync(p + '-shm');
-      if (existsSync(p + '-wal')) rmSync(p + '-wal');
+      if (existsSync(`${p}-shm`)) rmSync(`${p}-shm`);
+      if (existsSync(`${p}-wal`)) rmSync(`${p}-wal`);
     }
     created.length = 0;
   });
@@ -32,7 +32,7 @@ describe('db', () => {
     const db = openDb(path);
     runMigrations(db);
     const rows = db.prepare('SELECT version FROM schema_migrations').all();
-    expect(rows.map(r => r.version)).toContain('001_init');
+    expect(rows.map((r) => r.version)).toContain('001_init');
     db.close();
   });
 

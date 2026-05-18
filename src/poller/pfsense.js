@@ -18,9 +18,8 @@ export function createPfsenseClient({ baseUrl, apiKey, verifyTls, timeoutMs = 10
   if (!baseUrl) throw new Error('PFSENSE_URL required');
   if (!apiKey) throw new Error('PFSENSE_API_KEY required');
 
-  const dispatcher = verifyTls === false
-    ? new Agent({ connect: { rejectUnauthorized: false } })
-    : undefined;
+  const dispatcher =
+    verifyTls === false ? new Agent({ connect: { rejectUnauthorized: false } }) : undefined;
 
   async function call(path) {
     const url = baseUrl.replace(/\/$/, '') + path;
@@ -28,7 +27,7 @@ export function createPfsenseClient({ baseUrl, apiKey, verifyTls, timeoutMs = 10
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await undiciFetch(url, {
-        headers: { 'X-API-Key': apiKey, 'Accept': 'application/json' },
+        headers: { 'X-API-Key': apiKey, Accept: 'application/json' },
         signal: controller.signal,
         dispatcher,
       });
@@ -44,8 +43,9 @@ export function createPfsenseClient({ baseUrl, apiKey, verifyTls, timeoutMs = 10
   }
 
   async function callOptional(path) {
-    try { return await call(path); }
-    catch (e) {
+    try {
+      return await call(path);
+    } catch (e) {
       if (/404/.test(e.message)) return [];
       throw e;
     }

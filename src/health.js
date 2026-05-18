@@ -1,5 +1,5 @@
 export function buildHealthRouter() {
-  return (req, res) => {
+  return (_req, res) => {
     res.json({ status: 'ok', version: process.env.npm_package_version });
   };
 }

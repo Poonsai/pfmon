@@ -26,9 +26,18 @@ describe('GET /fragments/header-meta', () => {
 
   it('returns counts and freshness', async () => {
     const now = Math.floor(Date.now() / 1000);
-    db.prepare(`INSERT INTO interfaces (pfsense_name, kind) VALUES ('lan','lan'),('wan','wan'),('vlan10','vlan')`).run();
+    db.prepare(
+      `INSERT INTO interfaces (pfsense_name, kind) VALUES ('lan','lan'),('wan','wan'),('vlan10','vlan')`,
+    ).run();
     db.prepare(`INSERT INTO devices (mac, is_online, first_seen_at, last_seen_at) VALUES
-      ('a', 1, ?, ?), ('b', 1, ?, ?), ('c', 0, ?, ?)`).run(now, now, now, now, now - 3600, now - 3600);
+      ('a', 1, ?, ?), ('b', 1, ?, ?), ('c', 0, ?, ?)`).run(
+      now,
+      now,
+      now,
+      now,
+      now - 3600,
+      now - 3600,
+    );
     db.prepare(`INSERT INTO poll_log (ts, success, duration_ms) VALUES (?, 1, 10)`).run(now - 5);
 
     const res = await request(makeApp(db)).get('/fragments/header-meta');

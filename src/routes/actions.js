@@ -40,8 +40,16 @@ export function buildActionsRouter({ db }) {
     const exists = db.prepare('SELECT 1 FROM devices WHERE id = ?').get(id);
     if (!exists) return res.status(404).send('not found');
     db.prepare('INSERT OR IGNORE INTO device_tags VALUES (?, ?)').run(id, tag);
-    const tags = db.prepare('SELECT tag FROM device_tags WHERE device_id = ? ORDER BY tag').all(id).map(r => r.tag);
-    const html = tags.map(t => `<span class="tag-chip">${escapeHtml(t)}<button hx-delete="/devices/${id}/tags/${encodeURIComponent(t)}" hx-target="closest .tag-chip" hx-swap="outerHTML">x</button></span>`).join(' ');
+    const tags = db
+      .prepare('SELECT tag FROM device_tags WHERE device_id = ? ORDER BY tag')
+      .all(id)
+      .map((r) => r.tag);
+    const html = tags
+      .map(
+        (t) =>
+          `<span class="tag-chip">${escapeHtml(t)}<button hx-delete="/devices/${id}/tags/${encodeURIComponent(t)}" hx-target="closest .tag-chip" hx-swap="outerHTML">x</button></span>`,
+      )
+      .join(' ');
     res.send(html);
   });
 
@@ -62,6 +70,8 @@ export function buildActionsRouter({ db }) {
 }
 
 function escapeHtml(s) {
-  return String(s).replace(/[<>&"']/g, (c) =>
-    ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+  return String(s).replace(
+    /[<>&"']/g,
+    (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[c],
+  );
 }

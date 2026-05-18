@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import * as cheerio from 'cheerio';
@@ -29,7 +29,9 @@ describe('GET / VLAN options', () => {
       ('vlan30','Guest','vlan')`).run();
     const res = await request(makeApp(db)).get('/');
     const $ = cheerio.load(res.text);
-    const opts = $('select[name="vlan"] option').toArray().map(o => $(o).text());
+    const opts = $('select[name="vlan"] option')
+      .toArray()
+      .map((o) => $(o).text());
     expect(opts).toContain('VLAN: All');
     expect(opts).toContain('LAN');
     expect(opts).toContain('IoT');

@@ -31,12 +31,20 @@ function ipInSubnet(ip, cidr) {
   if (!ip || !cidr) return false;
   const [base, bits] = cidr.split('/');
   const mask = (0xffffffff << (32 - Number(bits))) >>> 0;
-  const n = (ip.split('.').reduce((a, p) => a * 256 + Number(p), 0)) >>> 0;
-  const b = (base.split('.').reduce((a, p) => a * 256 + Number(p), 0)) >>> 0;
+  const n = ip.split('.').reduce((a, p) => a * 256 + Number(p), 0) >>> 0;
+  const b = base.split('.').reduce((a, p) => a * 256 + Number(p), 0) >>> 0;
   return (n & mask) === (b & mask);
 }
 
-export function buildSnapshot({ arp, dhcpLeases, ndp, firewallStates, interfaces, ouiMap, geoRanges }) {
+export function buildSnapshot({
+  arp,
+  dhcpLeases,
+  ndp,
+  firewallStates,
+  interfaces,
+  ouiMap,
+  geoRanges,
+}) {
   const devices = {};
   function ensure(mac) {
     const key = normMac(mac);
@@ -82,7 +90,8 @@ export function buildSnapshot({ arp, dhcpLeases, ndp, firewallStates, interfaces
     d.ipv6 = row.ip ?? d.ipv6;
   }
 
-  const ifByIp = (ip) => (interfaces ?? []).find(i => ipInSubnet(ip, i.ipv4_subnet))?.pfsense_name ?? null;
+  const ifByIp = (ip) =>
+    (interfaces ?? []).find((i) => ipInSubnet(ip, i.ipv4_subnet))?.pfsense_name ?? null;
 
   for (const d of Object.values(devices)) {
     if (!d.interface && d.ip) d.interface = ifByIp(d.ip);

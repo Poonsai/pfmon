@@ -18,7 +18,10 @@ export function loadOui(path) {
 
 export function lookupVendor(map, mac) {
   if (!mac) return null;
-  const prefix = mac.toUpperCase().replace(/[^0-9A-F]/g, '').slice(0, 6);
+  const prefix = mac
+    .toUpperCase()
+    .replace(/[^0-9A-F]/g, '')
+    .slice(0, 6);
   if (prefix.length !== 6) return null;
   return map.get(prefix) ?? null;
 }
@@ -30,13 +33,23 @@ function parseCsvLine(line) {
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
     if (inQuote) {
-      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
-      else if (c === '"') { inQuote = false; }
-      else { cur += c; }
+      if (c === '"' && line[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else if (c === '"') {
+        inQuote = false;
+      } else {
+        cur += c;
+      }
     } else {
-      if (c === ',') { out.push(cur); cur = ''; }
-      else if (c === '"') { inQuote = true; }
-      else { cur += c; }
+      if (c === ',') {
+        out.push(cur);
+        cur = '';
+      } else if (c === '"') {
+        inQuote = true;
+      } else {
+        cur += c;
+      }
     }
   }
   out.push(cur);

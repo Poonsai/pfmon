@@ -6,16 +6,22 @@ import { maybeFireNewDeviceAlerts } from '../src/poller/alerts.js';
 
 let server, topicUrl, received;
 
-beforeAll(() => new Promise((resolve) => {
-  received = [];
-  const app = express();
-  app.use(express.text({ type: '*/*' }));
-  app.post('/topic', (req, res) => {
-    received.push({ body: req.body, headers: req.headers });
-    res.send('ok');
-  });
-  server = app.listen(0, () => { topicUrl = `http://127.0.0.1:${server.address().port}/topic`; resolve(); });
-}));
+beforeAll(
+  () =>
+    new Promise((resolve) => {
+      received = [];
+      const app = express();
+      app.use(express.text({ type: '*/*' }));
+      app.post('/topic', (req, res) => {
+        received.push({ body: req.body, headers: req.headers });
+        res.send('ok');
+      });
+      server = app.listen(0, () => {
+        topicUrl = `http://127.0.0.1:${server.address().port}/topic`;
+        resolve();
+      });
+    }),
+);
 afterAll(() => new Promise((r) => server.close(r)));
 
 function setup() {
@@ -23,7 +29,11 @@ function setup() {
   runMigrations(db);
   const now = 1_000_000;
   db.prepare(`INSERT INTO devices (mac, vendor, hostname, current_ip, is_online, first_seen_at, last_seen_at, new_until_seen_at)
-              VALUES ('aa:bb:cc:dd:ee:ff','Espressif','iot1','10.20.0.99', 1, ?, ?, ?)`).run(now, now, now);
+              VALUES ('aa:bb:cc:dd:ee:ff','Espressif','iot1','10.20.0.99', 1, ?, ?, ?)`).run(
+    now,
+    now,
+    now,
+  );
   return { db, now };
 }
 

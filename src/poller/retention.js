@@ -6,7 +6,9 @@ export function pruneOldRows(db, { now }) {
     db.prepare('DELETE FROM traffic_samples WHERE ts < ?').run(now - 7 * SEC_DAY);
     db.prepare('DELETE FROM interface_traffic_samples WHERE ts < ?').run(now - 7 * SEC_DAY);
     db.prepare('DELETE FROM traffic_hourly WHERE hour_bucket < ?').run(now - 90 * SEC_DAY);
-    db.prepare('DELETE FROM interface_traffic_hourly WHERE hour_bucket < ?').run(now - 90 * SEC_DAY);
+    db.prepare('DELETE FROM interface_traffic_hourly WHERE hour_bucket < ?').run(
+      now - 90 * SEC_DAY,
+    );
     db.prepare('DELETE FROM firewall_blocks WHERE ts < ?').run(now - 7 * SEC_DAY);
     db.prepare('DELETE FROM poll_log WHERE ts < ?').run(now - 7 * SEC_DAY);
   });

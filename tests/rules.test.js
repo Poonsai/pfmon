@@ -12,7 +12,9 @@ describe('rules.guessDeviceType', () => {
     expect(guessDeviceType({ vendor: 'Espressif Inc.', hostname: 'esp-xxxx' })).toBe('IoT (ESP)');
   });
   it('returns Echo for Amazon + echo hostname', () => {
-    expect(guessDeviceType({ vendor: 'Amazon Technologies Inc.', hostname: 'echo-dot' })).toBe('Echo');
+    expect(guessDeviceType({ vendor: 'Amazon Technologies Inc.', hostname: 'echo-dot' })).toBe(
+      'Echo',
+    );
   });
   it('returns Unknown when no rule matches', () => {
     expect(guessDeviceType({ vendor: 'NoSuch Corp', hostname: 'random-host' })).toBe('Unknown');

@@ -16,7 +16,10 @@ function formatBytes(n) {
   if (!n) return '-';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let i = 0;
-  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i++;
+  }
   return `${n.toFixed(n < 10 ? 1 : 0)} ${units[i]}`;
 }
 
@@ -34,7 +37,8 @@ function trafficWindowBoundaries(now) {
 
 function sumDeviceBytes(db, { deviceId, sinceTs, now }) {
   const { hourBoundary } = trafficWindowBoundaries(now);
-  return db.prepare(`
+  return db
+    .prepare(`
     SELECT
       COALESCE((SELECT SUM(rx_bytes) FROM traffic_samples
                 WHERE device_id = @id AND ts >= @hourBoundary AND ts >= @sinceTs), 0)
@@ -46,12 +50,14 @@ function sumDeviceBytes(db, { deviceId, sinceTs, now }) {
       + COALESCE((SELECT SUM(tx_bytes) FROM traffic_hourly
                   WHERE device_id = @id AND hour_bucket >= @sinceTs AND hour_bucket < @hourBoundary), 0)
       AS tx
-  `).get({ id: deviceId, sinceTs, hourBoundary });
+  `)
+    .get({ id: deviceId, sinceTs, hourBoundary });
 }
 
 function sumDeviceBytesAllTime(db, { deviceId, now }) {
   const { hourBoundary, dayBoundary } = trafficWindowBoundaries(now);
-  return db.prepare(`
+  return db
+    .prepare(`
     SELECT
       COALESCE((SELECT SUM(rx_bytes) FROM traffic_samples
                 WHERE device_id = @id AND ts >= @hourBoundary), 0)
@@ -67,12 +73,14 @@ function sumDeviceBytesAllTime(db, { deviceId, now }) {
       + COALESCE((SELECT SUM(tx_bytes) FROM traffic_daily
                   WHERE device_id = @id AND day_bucket < @dayBoundary), 0)
       AS tx
-  `).get({ id: deviceId, hourBoundary, dayBoundary });
+  `)
+    .get({ id: deviceId, hourBoundary, dayBoundary });
 }
 
 function sumInterfaceBytes(db, { interfaceId, sinceTs, now }) {
   const { hourBoundary } = trafficWindowBoundaries(now);
-  return db.prepare(`
+  return db
+    .prepare(`
     SELECT
       COALESCE((SELECT SUM(rx_bytes) FROM interface_traffic_samples
                 WHERE interface_id = @id AND ts >= @hourBoundary AND ts >= @sinceTs), 0)
@@ -84,12 +92,14 @@ function sumInterfaceBytes(db, { interfaceId, sinceTs, now }) {
       + COALESCE((SELECT SUM(tx_bytes) FROM interface_traffic_hourly
                   WHERE interface_id = @id AND hour_bucket >= @sinceTs AND hour_bucket < @hourBoundary), 0)
       AS tx
-  `).get({ id: interfaceId, sinceTs, hourBoundary });
+  `)
+    .get({ id: interfaceId, sinceTs, hourBoundary });
 }
 
 function interfaceHourlySeries(db, { interfaceId, sinceTs, now }) {
   const { hourBoundary } = trafficWindowBoundaries(now);
-  return db.prepare(`
+  return db
+    .prepare(`
     SELECT hour_bucket AS ts, rx_bytes, tx_bytes
     FROM interface_traffic_hourly
     WHERE interface_id = @id AND hour_bucket >= @sinceTs AND hour_bucket < @hourBoundary
@@ -101,21 +111,26 @@ function interfaceHourlySeries(db, { interfaceId, sinceTs, now }) {
     WHERE interface_id = @id AND ts >= @hourBoundary AND ts >= @sinceTs
     GROUP BY (ts / 3600) * 3600
     ORDER BY ts
-  `).all({ id: interfaceId, sinceTs, hourBoundary });
+  `)
+    .all({ id: interfaceId, sinceTs, hourBoundary });
 }
 
 export function buildFragmentsRouter({ db }) {
   const router = express.Router();
 
-  router.get('/fragments/header-meta', (req, res) => {
-    const counts = db.prepare(`
+  router.get('/fragments/header-meta', (_req, res) => {
+    const counts = db
+      .prepare(`
       SELECT
         (SELECT COUNT(*) FROM devices) AS total,
         (SELECT COUNT(*) FROM devices WHERE is_online = 1) AS online,
         (SELECT COUNT(*) FROM interfaces WHERE kind = 'vlan') AS vlans
-    `).get();
-    const lastPoll = db.prepare('SELECT ts FROM poll_log WHERE success = 1 ORDER BY ts DESC LIMIT 1').get();
-    const freshness = lastPoll ? (Math.floor(Date.now() / 1000) - lastPoll.ts) : null;
+    `)
+      .get();
+    const lastPoll = db
+      .prepare('SELECT ts FROM poll_log WHERE success = 1 ORDER BY ts DESC LIMIT 1')
+      .get();
+    const freshness = lastPoll ? Math.floor(Date.now() / 1000) - lastPoll.ts : null;
     res.render('fragments/header-meta', { ...counts, freshness });
   });
 
@@ -160,10 +175,11 @@ export function buildFragmentsRouter({ db }) {
 
     let orderBy = 'd.last_seen_at DESC';
     if (sort === 'name') orderBy = "COALESCE(d.nickname, d.hostname, '') COLLATE NOCASE";
-    else if (sort === 'ip') orderBy = "d.current_ip";
+    else if (sort === 'ip') orderBy = 'd.current_ip';
     else if (sort === 'bytes_today') orderBy = `${bytesTodaySql} DESC`;
 
-    const rows = db.prepare(`
+    const rows = db
+      .prepare(`
       SELECT d.id, d.mac, d.vendor, d.hostname, d.nickname, d.current_ip,
              d.is_online, d.last_seen_at, d.new_until_seen_at,
              i.pfsense_name AS interface_name, i.friendly_name AS interface_friendly,
@@ -172,9 +188,14 @@ export function buildFragmentsRouter({ db }) {
       LEFT JOIN interfaces i ON i.id = d.interface_id
       WHERE ${where.join(' AND ')}
       ORDER BY ${orderBy}
-    `).all({ ...params, bytesTodayStart, hourBoundary });
+    `)
+      .all({ ...params, bytesTodayStart, hourBoundary });
 
-    const vlans = db.prepare(`SELECT pfsense_name, friendly_name FROM interfaces WHERE kind != 'wan' ORDER BY pfsense_name`).all();
+    const vlans = db
+      .prepare(
+        `SELECT pfsense_name, friendly_name FROM interfaces WHERE kind != 'wan' ORDER BY pfsense_name`,
+      )
+      .all();
 
     res.render('fragments/device-list', {
       rows,
@@ -186,30 +207,44 @@ export function buildFragmentsRouter({ db }) {
     });
   });
 
-  router.get('/fragments/alerts', (req, res) => {
-    const newDevices = db.prepare(`
+  router.get('/fragments/alerts', (_req, res) => {
+    const newDevices = db
+      .prepare(`
       SELECT d.id, d.mac, d.vendor, d.hostname, d.current_ip, i.pfsense_name AS interface_name
       FROM devices d
       LEFT JOIN interfaces i ON i.id = d.interface_id
       WHERE d.new_until_seen_at IS NOT NULL
       ORDER BY d.first_seen_at DESC
-    `).all();
-    const lastPoll = db.prepare('SELECT success, error_msg, ts FROM poll_log ORDER BY ts DESC LIMIT 1').get();
+    `)
+      .all();
+    const lastPoll = db
+      .prepare('SELECT success, error_msg, ts FROM poll_log ORDER BY ts DESC LIMIT 1')
+      .get();
     const pollFailed = lastPoll && lastPoll.success === 0;
-    res.render('fragments/alerts', { newDevices, pollFailed, pollError: lastPoll?.error_msg ?? null });
+    res.render('fragments/alerts', {
+      newDevices,
+      pollFailed,
+      pollError: lastPoll?.error_msg ?? null,
+    });
   });
 
   router.get('/fragments/wan-summary', (req, res) => {
-    const range = req.query.range === '7d' ? '7d' : (req.query.range === '30d' ? '30d' : '24h');
-    const rangeSec = range === '24h' ? 24 * 3600 : (range === '7d' ? 7 * 86400 : 30 * 86400);
+    const range = req.query.range === '7d' ? '7d' : req.query.range === '30d' ? '30d' : '24h';
+    const rangeSec = range === '24h' ? 24 * 3600 : range === '7d' ? 7 * 86400 : 30 * 86400;
     const now = Math.floor(Date.now() / 1000);
 
-    const wan = db.prepare(`SELECT id, friendly_name FROM interfaces WHERE kind = 'wan' LIMIT 1`).get();
+    const wan = db
+      .prepare(`SELECT id, friendly_name FROM interfaces WHERE kind = 'wan' LIMIT 1`)
+      .get();
     if (!wan) {
       return res.render('fragments/wan-summary', { wan: null });
     }
 
-    const samples = interfaceHourlySeries(db, { interfaceId: wan.id, sinceTs: now - rangeSec, now });
+    const samples = interfaceHourlySeries(db, {
+      interfaceId: wan.id,
+      sinceTs: now - rangeSec,
+      now,
+    });
     const today = sumInterfaceBytes(db, { interfaceId: wan.id, sinceTs: now - 24 * 3600, now });
     const week = sumInterfaceBytes(db, { interfaceId: wan.id, sinceTs: now - 7 * 86400, now });
     const month = sumInterfaceBytes(db, { interfaceId: wan.id, sinceTs: now - 30 * 86400, now });
@@ -221,40 +256,53 @@ export function buildFragmentsRouter({ db }) {
   router.get('/fragments/device/:id', (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).send('bad id');
-    const dev = db.prepare(`
+    const dev = db
+      .prepare(`
       SELECT d.*, i.pfsense_name AS interface_name, i.friendly_name AS interface_friendly
       FROM devices d
       LEFT JOIN interfaces i ON i.id = d.interface_id
       WHERE d.id = ?
-    `).get(id);
+    `)
+      .get(id);
     if (!dev) return res.status(404).send('not found');
 
     const now = Math.floor(Date.now() / 1000);
-    const tags = db.prepare('SELECT tag FROM device_tags WHERE device_id = ? ORDER BY tag').all(id).map(r => r.tag);
+    const tags = db
+      .prepare('SELECT tag FROM device_tags WHERE device_id = ? ORDER BY tag')
+      .all(id)
+      .map((r) => r.tag);
     const todayBytes = sumDeviceBytes(db, { deviceId: id, sinceTs: now - 24 * 3600, now });
     const weekBytes = sumDeviceBytes(db, { deviceId: id, sinceTs: now - 7 * 86400, now });
     const monthBytes = sumDeviceBytes(db, { deviceId: id, sinceTs: now - 30 * 86400, now });
     const allTimeBytes = sumDeviceBytesAllTime(db, { deviceId: id, now });
-    const lastSample = db.prepare(`
+    const lastSample = db
+      .prepare(`
       SELECT rx_bytes, tx_bytes, states_count
       FROM traffic_samples
       WHERE device_id = ?
       ORDER BY ts DESC LIMIT 1
-    `).get(id) ?? { rx_bytes: 0, tx_bytes: 0, states_count: 0 };
-    const trafficSamples = db.prepare(`
+    `)
+      .get(id) ?? { rx_bytes: 0, tx_bytes: 0, states_count: 0 };
+    const trafficSamples = db
+      .prepare(`
       SELECT hour_bucket AS ts, rx_bytes, tx_bytes
       FROM traffic_hourly WHERE device_id = ? AND hour_bucket >= ?
       ORDER BY hour_bucket
-    `).all(id, now - 24 * 3600);
-    const uptimeEvents = db.prepare(`
+    `)
+      .all(id, now - 24 * 3600);
+    const uptimeEvents = db
+      .prepare(`
       SELECT ts, status FROM uptime_events
       WHERE device_id = ? AND ts >= ?
       ORDER BY ts
-    `).all(id, now - 24 * 3600);
-    const countries = db.prepare(`
+    `)
+      .all(id, now - 24 * 3600);
+    const countries = db
+      .prepare(`
       SELECT country_code, hit_count FROM geo_connections
       WHERE device_id = ? ORDER BY hit_count DESC LIMIT 5
-    `).all(id);
+    `)
+      .all(id);
 
     const trafficSvg = renderDeviceTrafficSvg({ samples: trafficSamples });
     const uptimeSvg = renderUptimeSparklineSvg({
@@ -265,9 +313,19 @@ export function buildFragmentsRouter({ db }) {
     });
 
     res.render('fragments/device-detail', {
-      dev, tags, todayBytes, weekBytes, monthBytes, allTimeBytes,
-      lastSample, countries, trafficSvg, uptimeSvg, now,
-      formatBytes, formatRelative,
+      dev,
+      tags,
+      todayBytes,
+      weekBytes,
+      monthBytes,
+      allTimeBytes,
+      lastSample,
+      countries,
+      trafficSvg,
+      uptimeSvg,
+      now,
+      formatBytes,
+      formatRelative,
     });
   });
 

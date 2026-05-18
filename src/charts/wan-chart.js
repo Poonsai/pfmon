@@ -1,16 +1,24 @@
 function escapeXml(s) {
-  return String(s).replace(/[<>&"']/g, (c) =>
-    ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]));
+  return String(s).replace(
+    /[<>&"']/g,
+    (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[c],
+  );
 }
 
-export function renderWanChartSvg({ samples, width = 600, height = 80, downColor = '#3b82f6', upColor = '#ef4444' }) {
+export function renderWanChartSvg({
+  samples,
+  width = 600,
+  height = 80,
+  downColor = '#3b82f6',
+  upColor = '#ef4444',
+}) {
   if (!samples || samples.length === 0) {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="100%" height="${height}">
       <text x="50%" y="50%" text-anchor="middle" font-size="11" fill="#64748b">No data yet</text>
     </svg>`;
   }
-  const maxRx = Math.max(...samples.map(s => s.rx_bytes), 1);
-  const maxTx = Math.max(...samples.map(s => s.tx_bytes), 1);
+  const maxRx = Math.max(...samples.map((s) => s.rx_bytes), 1);
+  const maxTx = Math.max(...samples.map((s) => s.tx_bytes), 1);
   const max = Math.max(maxRx, maxTx);
   const n = samples.length;
   const stepX = width / Math.max(n - 1, 1);

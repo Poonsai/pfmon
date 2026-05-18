@@ -29,7 +29,10 @@ const client = createPfsenseClient({
 
 console.log(JSON.stringify({ level: 'info', msg: 'running initial sync poll' }));
 const first = await runOnePoll({
-  db, client, ouiMap, geoRanges,
+  db,
+  client,
+  ouiMap,
+  geoRanges,
   now: Math.floor(Date.now() / 1000),
   staleAfterSec: cfg.pollIntervalSec * 10,
   ntfyTopicUrl: cfg.ntfyTopicUrl,
@@ -39,7 +42,10 @@ const first = await runOnePoll({
 console.log(JSON.stringify({ level: 'info', msg: 'initial poll done', ...first }));
 
 const sched = startScheduler({
-  db, client, ouiMap, geoRanges,
+  db,
+  client,
+  ouiMap,
+  geoRanges,
   intervalSec: cfg.pollIntervalSec,
   staleAfterSec: cfg.pollIntervalSec * 10,
   ntfyTopicUrl: cfg.ntfyTopicUrl,
@@ -65,7 +71,10 @@ const server = app.listen(cfg.port, () => {
 function shutdown(signal) {
   console.log(JSON.stringify({ level: 'info', msg: 'shutdown', signal }));
   sched.stop();
-  server.close(() => { db.close(); process.exit(0); });
+  server.close(() => {
+    db.close();
+    process.exit(0);
+  });
 }
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));

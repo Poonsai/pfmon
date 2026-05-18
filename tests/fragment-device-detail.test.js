@@ -20,17 +20,26 @@ function makeApp(db) {
 
 function seed(db) {
   const now = Math.floor(Date.now() / 1000);
-  db.prepare(`INSERT INTO interfaces (pfsense_name, friendly_name, kind, ipv4_subnet) VALUES ('lan','LAN','lan','10.0.0.0/24')`).run();
+  db.prepare(
+    `INSERT INTO interfaces (pfsense_name, friendly_name, kind, ipv4_subnet) VALUES ('lan','LAN','lan','10.0.0.0/24')`,
+  ).run();
   const ifLan = db.prepare("SELECT id FROM interfaces WHERE pfsense_name='lan'").get().id;
-  const info = db.prepare(`INSERT INTO devices
+  const info = db
+    .prepare(`INSERT INTO devices
     (mac, vendor, hostname, nickname, notes, device_type_guess, current_ip, current_ipv6, interface_id,
      current_lease_type, current_lease_expires_at, is_online, first_seen_at, last_seen_at)
     VALUES ('aa:bb:cc:dd:ee:01', 'LG', 'living-room-tv', NULL, 'WebOS TV', 'Smart TV',
       '10.0.0.42', 'fe80::1', ?, 'dynamic', ?, 1, ?, ?)
-  `).run(ifLan, now + 3600, now - 86400 * 30, now);
+  `)
+    .run(ifLan, now + 3600, now - 86400 * 30, now);
   const id = info.lastInsertRowid;
   db.prepare(`INSERT INTO device_tags VALUES (?, 'iot'), (?, 'tv')`).run(id, id);
-  db.prepare(`INSERT INTO geo_connections VALUES (?, 'US', ?, 42), (?, 'KR', ?, 8)`).run(id, now, id, now - 3600);
+  db.prepare(`INSERT INTO geo_connections VALUES (?, 'US', ?, 42), (?, 'KR', ?, 8)`).run(
+    id,
+    now,
+    id,
+    now - 3600,
+  );
   return { db, id };
 }
 
@@ -71,10 +80,12 @@ describe('GET /fragments/device/:id', () => {
   it('includes current-hour samples in today/week totals before the rollup has fired', async () => {
     // No rollup yet — only raw samples exist for the device.
     const now = Math.floor(Date.now() / 1000);
-    db.prepare(`INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, 0)`)
-      .run(id, now - 60, 4_000_000, 1_000_000);
-    db.prepare(`INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, 0)`)
-      .run(id, now - 30, 6_000_000, 1_000_000);
+    db.prepare(
+      `INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, 0)`,
+    ).run(id, now - 60, 4_000_000, 1_000_000);
+    db.prepare(
+      `INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, 0)`,
+    ).run(id, now - 30, 6_000_000, 1_000_000);
     expect(db.prepare('SELECT COUNT(*) c FROM traffic_hourly').get().c).toBe(0);
 
     const res = await request(makeApp(db)).get(`/fragments/device/${id}`);
