@@ -81,4 +81,22 @@ describe('GET /fragments/device-list', () => {
     expect(res.text).toContain('jane-iphone');
     expect(res.text).toContain('living-room-tv');
   });
+
+  it('sorts by bytes_today using current-hour samples not yet rolled up', async () => {
+    // Add bytes only via traffic_samples (no hourly rollup yet).
+    // Give jane-iphone (mac ee:02) a big sample, and echo-dot (ee:04) a tiny one.
+    const janeId = db.prepare("SELECT id FROM devices WHERE mac='aa:bb:cc:dd:ee:02'").get().id;
+    const echoId = db.prepare("SELECT id FROM devices WHERE mac='aa:bb:cc:dd:ee:04'").get().id;
+    const now = Math.floor(Date.now() / 1000);
+    db.prepare(`INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, 0)`)
+      .run(janeId, now - 30, 50_000_000, 5_000_000);
+    db.prepare(`INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, 0)`)
+      .run(echoId, now - 30, 100, 100);
+
+    const res = await request(makeApp(db)).get('/fragments/device-list?sort=bytes_today');
+    expect(res.status).toBe(200);
+    const $ = cheerio.load(res.text);
+    const firstRow = $('table.device-list tbody tr').first();
+    expect(firstRow.text()).toContain('jane-iphone');
+  });
 });

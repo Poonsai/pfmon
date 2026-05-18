@@ -6,6 +6,27 @@ function normMac(mac) {
   return (mac ?? '').toLowerCase().trim();
 }
 
+function normHostname(h) {
+  // pfRest 2.8 ARP returns '?' when no DNS/static name is known.
+  if (h == null) return null;
+  const t = String(h).trim();
+  return t === '' || t === '?' ? null : t;
+}
+
+// pfRest 2.8 firewall states report endpoints as "ip:port" (IPv4) or "[ipv6]:port".
+// Extract the bare IP so it can be matched against ARP/DHCP entries.
+function ipFromEndpoint(s) {
+  if (!s || typeof s !== 'string') return null;
+  if (s.startsWith('[')) {
+    const end = s.indexOf(']');
+    return end > 0 ? s.slice(1, end) : null;
+  }
+  const lastColon = s.lastIndexOf(':');
+  // No colon = bare IP; multiple colons = bare IPv6.
+  if (lastColon === -1 || s.indexOf(':') !== lastColon) return s;
+  return s.slice(0, lastColon);
+}
+
 function ipInSubnet(ip, cidr) {
   if (!ip || !cidr) return false;
   const [base, bits] = cidr.split('/');
@@ -39,10 +60,12 @@ export function buildSnapshot({ arp, dhcpLeases, ndp, firewallStates, interfaces
   }
 
   for (const row of arp ?? []) {
-    if (!row.mac) continue;
-    const d = ensure(row.mac);
-    d.ip = row.ip ?? d.ip;
-    d.hostname = row.hostname ?? d.hostname;
+    // pfRest 2.8 uses mac_address/ip_address; older variants used mac/ip.
+    const mac = row.mac_address ?? row.mac;
+    if (!mac) continue;
+    const d = ensure(mac);
+    d.ip = row.ip_address ?? row.ip ?? d.ip;
+    d.hostname = normHostname(row.hostname) ?? d.hostname;
     d.interface = row.interface ?? d.interface;
   }
   for (const row of dhcpLeases ?? []) {
@@ -66,13 +89,22 @@ export function buildSnapshot({ arp, dhcpLeases, ndp, firewallStates, interfaces
     d.device_type_guess = guessDeviceType({ vendor: d.vendor, hostname: d.hostname });
   }
 
+  // pfRest 2.8: state.source/destination are "ip:port" strings.
+  // Older variants exposed bare IPs on state.src / state.dst.
+  const devByIp = new Map();
+  for (const d of Object.values(devices)) if (d.ip) devByIp.set(d.ip, d);
   for (const st of firewallStates ?? []) {
-    const dev = Object.values(devices).find(d => d.ip === st.src);
+    const srcIp = ipFromEndpoint(st.source) ?? st.src ?? null;
+    const dstIp = ipFromEndpoint(st.destination) ?? st.dst ?? null;
+    const dev = srcIp ? devByIp.get(srcIp) : null;
     if (!dev) continue;
     dev.states_count += 1;
-    dev.rx_bytes_total += Number(st.bytes_in ?? 0);
-    dev.tx_bytes_total += Number(st.bytes_out ?? 0);
-    const cc = lookupCountry(geoRanges ?? [], st.dst);
+    // bytes_in is forward-flow (source -> destination); bytes_out is the
+    // reverse. The matched device is the state's source, so bytes_in is what
+    // the device transmitted (tx) and bytes_out is what it received (rx).
+    dev.tx_bytes_total += Number(st.bytes_in ?? 0);
+    dev.rx_bytes_total += Number(st.bytes_out ?? 0);
+    const cc = lookupCountry(geoRanges ?? [], dstIp);
     if (cc) dev.countries[cc] = (dev.countries[cc] ?? 0) + 1;
   }
 

@@ -20,6 +20,90 @@ function formatBytes(n) {
   return `${n.toFixed(n < 10 ? 1 : 0)} ${units[i]}`;
 }
 
+// Time-series rollups (traffic_hourly, traffic_daily) lag behind the live poller by up to
+// one hour (hourly cron at :00) or one day (daily cron at 00:05). To avoid showing 0 for
+// the in-progress hour and day, dashboard queries union the rolled-up tables with the raw
+// samples that haven't been folded in yet. Partition by hourBoundary/dayBoundary so the
+// sample rows and rollup rows never overlap.
+function trafficWindowBoundaries(now) {
+  return {
+    hourBoundary: Math.floor(now / 3600) * 3600,
+    dayBoundary: Math.floor(now / 86400) * 86400,
+  };
+}
+
+function sumDeviceBytes(db, { deviceId, sinceTs, now }) {
+  const { hourBoundary } = trafficWindowBoundaries(now);
+  return db.prepare(`
+    SELECT
+      COALESCE((SELECT SUM(rx_bytes) FROM traffic_samples
+                WHERE device_id = @id AND ts >= @hourBoundary AND ts >= @sinceTs), 0)
+      + COALESCE((SELECT SUM(rx_bytes) FROM traffic_hourly
+                  WHERE device_id = @id AND hour_bucket >= @sinceTs AND hour_bucket < @hourBoundary), 0)
+      AS rx,
+      COALESCE((SELECT SUM(tx_bytes) FROM traffic_samples
+                WHERE device_id = @id AND ts >= @hourBoundary AND ts >= @sinceTs), 0)
+      + COALESCE((SELECT SUM(tx_bytes) FROM traffic_hourly
+                  WHERE device_id = @id AND hour_bucket >= @sinceTs AND hour_bucket < @hourBoundary), 0)
+      AS tx
+  `).get({ id: deviceId, sinceTs, hourBoundary });
+}
+
+function sumDeviceBytesAllTime(db, { deviceId, now }) {
+  const { hourBoundary, dayBoundary } = trafficWindowBoundaries(now);
+  return db.prepare(`
+    SELECT
+      COALESCE((SELECT SUM(rx_bytes) FROM traffic_samples
+                WHERE device_id = @id AND ts >= @hourBoundary), 0)
+      + COALESCE((SELECT SUM(rx_bytes) FROM traffic_hourly
+                  WHERE device_id = @id AND hour_bucket >= @dayBoundary AND hour_bucket < @hourBoundary), 0)
+      + COALESCE((SELECT SUM(rx_bytes) FROM traffic_daily
+                  WHERE device_id = @id AND day_bucket < @dayBoundary), 0)
+      AS rx,
+      COALESCE((SELECT SUM(tx_bytes) FROM traffic_samples
+                WHERE device_id = @id AND ts >= @hourBoundary), 0)
+      + COALESCE((SELECT SUM(tx_bytes) FROM traffic_hourly
+                  WHERE device_id = @id AND hour_bucket >= @dayBoundary AND hour_bucket < @hourBoundary), 0)
+      + COALESCE((SELECT SUM(tx_bytes) FROM traffic_daily
+                  WHERE device_id = @id AND day_bucket < @dayBoundary), 0)
+      AS tx
+  `).get({ id: deviceId, hourBoundary, dayBoundary });
+}
+
+function sumInterfaceBytes(db, { interfaceId, sinceTs, now }) {
+  const { hourBoundary } = trafficWindowBoundaries(now);
+  return db.prepare(`
+    SELECT
+      COALESCE((SELECT SUM(rx_bytes) FROM interface_traffic_samples
+                WHERE interface_id = @id AND ts >= @hourBoundary AND ts >= @sinceTs), 0)
+      + COALESCE((SELECT SUM(rx_bytes) FROM interface_traffic_hourly
+                  WHERE interface_id = @id AND hour_bucket >= @sinceTs AND hour_bucket < @hourBoundary), 0)
+      AS rx,
+      COALESCE((SELECT SUM(tx_bytes) FROM interface_traffic_samples
+                WHERE interface_id = @id AND ts >= @hourBoundary AND ts >= @sinceTs), 0)
+      + COALESCE((SELECT SUM(tx_bytes) FROM interface_traffic_hourly
+                  WHERE interface_id = @id AND hour_bucket >= @sinceTs AND hour_bucket < @hourBoundary), 0)
+      AS tx
+  `).get({ id: interfaceId, sinceTs, hourBoundary });
+}
+
+function interfaceHourlySeries(db, { interfaceId, sinceTs, now }) {
+  const { hourBoundary } = trafficWindowBoundaries(now);
+  return db.prepare(`
+    SELECT hour_bucket AS ts, rx_bytes, tx_bytes
+    FROM interface_traffic_hourly
+    WHERE interface_id = @id AND hour_bucket >= @sinceTs AND hour_bucket < @hourBoundary
+    UNION ALL
+    SELECT (ts / 3600) * 3600 AS ts,
+           CAST(SUM(rx_bytes) AS INTEGER) AS rx_bytes,
+           CAST(SUM(tx_bytes) AS INTEGER) AS tx_bytes
+    FROM interface_traffic_samples
+    WHERE interface_id = @id AND ts >= @hourBoundary AND ts >= @sinceTs
+    GROUP BY (ts / 3600) * 3600
+    ORDER BY ts
+  `).all({ id: interfaceId, sinceTs, hourBoundary });
+}
+
 export function buildFragmentsRouter({ db }) {
   const router = express.Router();
 
@@ -37,7 +121,6 @@ export function buildFragmentsRouter({ db }) {
 
   router.get('/fragments/device-list', (req, res) => {
     const { q = '', status = '', vlan = '', sort = 'last_seen' } = req.query;
-    const SEC = (n) => Math.floor(Date.now() / 1000) - n;
 
     const where = ['1=1'];
     const params = {};
@@ -63,28 +146,33 @@ export function buildFragmentsRouter({ db }) {
       params.qLike = `%${q}%`;
     }
 
+    const now = Math.floor(Date.now() / 1000);
+    const { hourBoundary } = trafficWindowBoundaries(now);
+    const bytesTodayStart = now - 24 * 3600;
+    // Subquery that mirrors sumDeviceBytes: samples for the in-progress hour
+    // plus hourly buckets for older completed hours.
+    const bytesTodaySql = `(
+      COALESCE((SELECT SUM(rx_bytes + tx_bytes) FROM traffic_samples ts
+                WHERE ts.device_id = d.id AND ts.ts >= @hourBoundary AND ts.ts >= @bytesTodayStart), 0)
+      + COALESCE((SELECT SUM(rx_bytes + tx_bytes) FROM traffic_hourly th
+                  WHERE th.device_id = d.id AND th.hour_bucket >= @bytesTodayStart AND th.hour_bucket < @hourBoundary), 0)
+    )`;
+
     let orderBy = 'd.last_seen_at DESC';
     if (sort === 'name') orderBy = "COALESCE(d.nickname, d.hostname, '') COLLATE NOCASE";
     else if (sort === 'ip') orderBy = "d.current_ip";
-    else if (sort === 'bytes_today') {
-      orderBy = `(SELECT COALESCE(SUM(rx_bytes + tx_bytes), 0)
-                  FROM traffic_hourly th
-                  WHERE th.device_id = d.id AND th.hour_bucket >= @todayStart) DESC`;
-      params.todayStart = SEC(24 * 3600);
-    }
+    else if (sort === 'bytes_today') orderBy = `${bytesTodaySql} DESC`;
 
     const rows = db.prepare(`
       SELECT d.id, d.mac, d.vendor, d.hostname, d.nickname, d.current_ip,
              d.is_online, d.last_seen_at, d.new_until_seen_at,
              i.pfsense_name AS interface_name, i.friendly_name AS interface_friendly,
-             (SELECT COALESCE(SUM(rx_bytes + tx_bytes), 0)
-              FROM traffic_hourly th
-              WHERE th.device_id = d.id AND th.hour_bucket >= @bytesTodayStart) AS bytes_today
+             ${bytesTodaySql} AS bytes_today
       FROM devices d
       LEFT JOIN interfaces i ON i.id = d.interface_id
       WHERE ${where.join(' AND ')}
       ORDER BY ${orderBy}
-    `).all({ ...params, bytesTodayStart: SEC(24 * 3600) });
+    `).all({ ...params, bytesTodayStart, hourBoundary });
 
     const vlans = db.prepare(`SELECT pfsense_name, friendly_name FROM interfaces WHERE kind != 'wan' ORDER BY pfsense_name`).all();
 
@@ -121,24 +209,10 @@ export function buildFragmentsRouter({ db }) {
       return res.render('fragments/wan-summary', { wan: null });
     }
 
-    const samples = db.prepare(`
-      SELECT hour_bucket AS ts, rx_bytes, tx_bytes
-      FROM interface_traffic_hourly
-      WHERE interface_id = ? AND hour_bucket >= ?
-      ORDER BY hour_bucket
-    `).all(wan.id, now - rangeSec);
-
-    function totalSince(since) {
-      const r = db.prepare(`
-        SELECT COALESCE(SUM(rx_bytes), 0) AS rx, COALESCE(SUM(tx_bytes), 0) AS tx
-        FROM interface_traffic_hourly
-        WHERE interface_id = ? AND hour_bucket >= ?
-      `).get(wan.id, since);
-      return { rx: r.rx, tx: r.tx };
-    }
-    const today = totalSince(now - 24 * 3600);
-    const week = totalSince(now - 7 * 86400);
-    const month = totalSince(now - 30 * 86400);
+    const samples = interfaceHourlySeries(db, { interfaceId: wan.id, sinceTs: now - rangeSec, now });
+    const today = sumInterfaceBytes(db, { interfaceId: wan.id, sinceTs: now - 24 * 3600, now });
+    const week = sumInterfaceBytes(db, { interfaceId: wan.id, sinceTs: now - 7 * 86400, now });
+    const month = sumInterfaceBytes(db, { interfaceId: wan.id, sinceTs: now - 30 * 86400, now });
 
     const chartSvg = renderWanChartSvg({ samples, width: 800, height: 90 });
     res.render('fragments/wan-summary', { wan, today, week, month, range, chartSvg, formatBytes });
@@ -157,22 +231,10 @@ export function buildFragmentsRouter({ db }) {
 
     const now = Math.floor(Date.now() / 1000);
     const tags = db.prepare('SELECT tag FROM device_tags WHERE device_id = ? ORDER BY tag').all(id).map(r => r.tag);
-    const todayBytes = db.prepare(`
-      SELECT COALESCE(SUM(rx_bytes), 0) AS rx, COALESCE(SUM(tx_bytes), 0) AS tx
-      FROM traffic_hourly WHERE device_id = ? AND hour_bucket >= ?
-    `).get(id, now - 24 * 3600);
-    const weekBytes = db.prepare(`
-      SELECT COALESCE(SUM(rx_bytes), 0) AS rx, COALESCE(SUM(tx_bytes), 0) AS tx
-      FROM traffic_hourly WHERE device_id = ? AND hour_bucket >= ?
-    `).get(id, now - 7 * 86400);
-    const monthBytes = db.prepare(`
-      SELECT COALESCE(SUM(rx_bytes), 0) AS rx, COALESCE(SUM(tx_bytes), 0) AS tx
-      FROM traffic_daily WHERE device_id = ? AND day_bucket >= ?
-    `).get(id, now - 30 * 86400);
-    const allTimeBytes = db.prepare(`
-      SELECT COALESCE(SUM(rx_bytes), 0) AS rx, COALESCE(SUM(tx_bytes), 0) AS tx
-      FROM traffic_daily WHERE device_id = ?
-    `).get(id);
+    const todayBytes = sumDeviceBytes(db, { deviceId: id, sinceTs: now - 24 * 3600, now });
+    const weekBytes = sumDeviceBytes(db, { deviceId: id, sinceTs: now - 7 * 86400, now });
+    const monthBytes = sumDeviceBytes(db, { deviceId: id, sinceTs: now - 30 * 86400, now });
+    const allTimeBytes = sumDeviceBytesAllTime(db, { deviceId: id, now });
     const lastSample = db.prepare(`
       SELECT rx_bytes, tx_bytes, states_count
       FROM traffic_samples
