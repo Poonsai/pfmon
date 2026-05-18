@@ -1,5 +1,7 @@
 import express from 'express';
 import { renderWanChartSvg } from '../charts/wan-chart.js';
+import { renderUptimeSparklineSvg } from '../charts/uptime-sparkline.js';
+import { renderDeviceTrafficSvg } from '../charts/device-traffic-chart.js';
 
 function formatRelative(ts, now) {
   if (!ts) return '-';
@@ -140,6 +142,71 @@ export function buildFragmentsRouter({ db }) {
 
     const chartSvg = renderWanChartSvg({ samples, width: 800, height: 90 });
     res.render('fragments/wan-summary', { wan, today, week, month, range, chartSvg, formatBytes });
+  });
+
+  router.get('/fragments/device/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).send('bad id');
+    const dev = db.prepare(`
+      SELECT d.*, i.pfsense_name AS interface_name, i.friendly_name AS interface_friendly
+      FROM devices d
+      LEFT JOIN interfaces i ON i.id = d.interface_id
+      WHERE d.id = ?
+    `).get(id);
+    if (!dev) return res.status(404).send('not found');
+
+    const now = Math.floor(Date.now() / 1000);
+    const tags = db.prepare('SELECT tag FROM device_tags WHERE device_id = ? ORDER BY tag').all(id).map(r => r.tag);
+    const todayBytes = db.prepare(`
+      SELECT COALESCE(SUM(rx_bytes), 0) AS rx, COALESCE(SUM(tx_bytes), 0) AS tx
+      FROM traffic_hourly WHERE device_id = ? AND hour_bucket >= ?
+    `).get(id, now - 24 * 3600);
+    const weekBytes = db.prepare(`
+      SELECT COALESCE(SUM(rx_bytes), 0) AS rx, COALESCE(SUM(tx_bytes), 0) AS tx
+      FROM traffic_hourly WHERE device_id = ? AND hour_bucket >= ?
+    `).get(id, now - 7 * 86400);
+    const monthBytes = db.prepare(`
+      SELECT COALESCE(SUM(rx_bytes), 0) AS rx, COALESCE(SUM(tx_bytes), 0) AS tx
+      FROM traffic_daily WHERE device_id = ? AND day_bucket >= ?
+    `).get(id, now - 30 * 86400);
+    const allTimeBytes = db.prepare(`
+      SELECT COALESCE(SUM(rx_bytes), 0) AS rx, COALESCE(SUM(tx_bytes), 0) AS tx
+      FROM traffic_daily WHERE device_id = ?
+    `).get(id);
+    const lastSample = db.prepare(`
+      SELECT rx_bytes, tx_bytes, states_count
+      FROM traffic_samples
+      WHERE device_id = ?
+      ORDER BY ts DESC LIMIT 1
+    `).get(id) ?? { rx_bytes: 0, tx_bytes: 0, states_count: 0 };
+    const trafficSamples = db.prepare(`
+      SELECT hour_bucket AS ts, rx_bytes, tx_bytes
+      FROM traffic_hourly WHERE device_id = ? AND hour_bucket >= ?
+      ORDER BY hour_bucket
+    `).all(id, now - 24 * 3600);
+    const uptimeEvents = db.prepare(`
+      SELECT ts, status FROM uptime_events
+      WHERE device_id = ? AND ts >= ?
+      ORDER BY ts
+    `).all(id, now - 24 * 3600);
+    const countries = db.prepare(`
+      SELECT country_code, hit_count FROM geo_connections
+      WHERE device_id = ? ORDER BY hit_count DESC LIMIT 5
+    `).all(id);
+
+    const trafficSvg = renderDeviceTrafficSvg({ samples: trafficSamples });
+    const uptimeSvg = renderUptimeSparklineSvg({
+      events: uptimeEvents,
+      windowStart: now - 24 * 3600,
+      windowEnd: now,
+      isOnlineNow: dev.is_online === 1,
+    });
+
+    res.render('fragments/device-detail', {
+      dev, tags, todayBytes, weekBytes, monthBytes, allTimeBytes,
+      lastSample, countries, trafficSvg, uptimeSvg, now,
+      formatBytes, formatRelative,
+    });
   });
 
   return router;
