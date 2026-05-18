@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.3](https://github.com/Poonsai/pfmon/compare/v0.2.2...v0.2.3) (2026-05-18)
+
+
+### Bug Fixes
+
+* harden traffic accounting, poller lifecycle, and alert delivery ([1012aa5](https://github.com/Poonsai/pfmon/commit/1012aa5530e5523888660aac4856b7b50b70e8c4))
+* live WAN and per-device traffic stats (pfRest 2.8 compatibility) ([1da0b6f](https://github.com/Poonsai/pfmon/commit/1da0b6fa12d254b0fb86e5b89fbf611519ad2cb5))
+* populate WAN and per-device traffic stats live ([1627b45](https://github.com/Poonsai/pfmon/commit/1627b45dc0e967616d1ba99fb1e231e62ffa0241))
+* swap per-device rx/tx semantic in firewall_states aggregation ([ff9f3cd](https://github.com/Poonsai/pfmon/commit/ff9f3cd58b1ce5921cafda68d501af63ca151942))
+
 ## [0.2.2](https://github.com/Poonsai/pfmon/compare/v0.2.1...v0.2.2) (2026-05-18)
 
 
