@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>pfmon</title>
+  <script>
+    (function () {
+      var key = 'pfmon-theme';
+      var stored = null;
+      try { stored = localStorage.getItem(key); } catch (e) {}
+      var theme = (stored === 'light' || stored === 'dark')
+        ? stored
+        : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/pfmon.css">
+  <script src="/static/htmx.min.js" defer></script>
+  <script src="/static/theme.js" defer></script>
+</head>
+<body>
+  <header class="header">
+    <h1>pfmon</h1>
+    <span class="meta" hx-get="/fragments/header-meta" hx-trigger="load, every 30s" hx-swap="innerHTML"></span>
+    <button class="theme-toggle" type="button" onclick="pfmonToggleTheme()">Light / Dark</button>
+  </header>
+
+  <div data-fragment="alerts" hx-get="/fragments/alerts" hx-trigger="load, every 30s" hx-swap="innerHTML"></div>
+
+  <div data-fragment="wan-summary" hx-get="/fragments/wan-summary" hx-trigger="load, every 30s" hx-swap="innerHTML"></div>
+
+  <form class="controls" hx-get="/fragments/device-list" hx-target="[data-fragment='device-list']" hx-trigger="input changed delay:300ms, change">
+    <input type="search" name="q" placeholder="Search name, IP, MAC, vendor, tag...">
+    <select name="status">
+      <option value="">All status</option>
+      <option value="online">Online</option>
+      <option value="offline">Offline</option>
+      <option value="new">New</option>
+    </select>
+    <select name="vlan">
+      <option value="">VLAN: All</option>
+    </select>
+    <select name="sort">
+      <option value="last_seen">Sort: last seen</option>
+      <option value="name">Name</option>
+      <option value="ip">IP</option>
+      <option value="bytes_today">Bytes today</option>
+    </select>
+  </form>
+
+  <div class="master-detail">
+    <div class="master" data-fragment="device-list" hx-get="/fragments/device-list" hx-trigger="load, every 30s" hx-swap="innerHTML"></div>
+    <div class="detail" id="detail-panel">
+      <p class="subtitle">Select a device to see details.</p>
+    </div>
+  </div>
+</body>
+</html>
