@@ -1,4 +1,5 @@
 import express from 'express';
+import { renderWanChartSvg } from '../charts/wan-chart.js';
 
 function formatRelative(ts, now) {
   if (!ts) return '-';
@@ -106,6 +107,39 @@ export function buildFragmentsRouter({ db }) {
     const lastPoll = db.prepare('SELECT success, error_msg, ts FROM poll_log ORDER BY ts DESC LIMIT 1').get();
     const pollFailed = lastPoll && lastPoll.success === 0;
     res.render('fragments/alerts', { newDevices, pollFailed, pollError: lastPoll?.error_msg ?? null });
+  });
+
+  router.get('/fragments/wan-summary', (req, res) => {
+    const range = req.query.range === '7d' ? '7d' : (req.query.range === '30d' ? '30d' : '24h');
+    const rangeSec = range === '24h' ? 24 * 3600 : (range === '7d' ? 7 * 86400 : 30 * 86400);
+    const now = Math.floor(Date.now() / 1000);
+
+    const wan = db.prepare(`SELECT id, friendly_name FROM interfaces WHERE kind = 'wan' LIMIT 1`).get();
+    if (!wan) {
+      return res.render('fragments/wan-summary', { wan: null });
+    }
+
+    const samples = db.prepare(`
+      SELECT hour_bucket AS ts, rx_bytes, tx_bytes
+      FROM interface_traffic_hourly
+      WHERE interface_id = ? AND hour_bucket >= ?
+      ORDER BY hour_bucket
+    `).all(wan.id, now - rangeSec);
+
+    function totalSince(since) {
+      const r = db.prepare(`
+        SELECT COALESCE(SUM(rx_bytes), 0) AS rx, COALESCE(SUM(tx_bytes), 0) AS tx
+        FROM interface_traffic_hourly
+        WHERE interface_id = ? AND hour_bucket >= ?
+      `).get(wan.id, since);
+      return { rx: r.rx, tx: r.tx };
+    }
+    const today = totalSince(now - 24 * 3600);
+    const week = totalSince(now - 7 * 86400);
+    const month = totalSince(now - 30 * 86400);
+
+    const chartSvg = renderWanChartSvg({ samples, width: 800, height: 90 });
+    res.render('fragments/wan-summary', { wan, today, week, month, range, chartSvg, formatBytes });
   });
 
   return router;
