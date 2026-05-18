@@ -1,7 +1,8 @@
 services:
   pfmon:
-    image: ghcr.io/poonsai/pfmon:latest
-    container_name: pfmon
+    build: .
+    image: pfmon:dev
+    container_name: pfmon-dev
     restart: unless-stopped
     ports:
       - "8080:8080"

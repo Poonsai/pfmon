@@ -1,0 +1,15 @@
+{
+  "release-type": "node",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
+  "draft": false,
+  "prerelease": false,
+  "packages": {
+    ".": {
+      "package-name": "pfmon",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": false,
+      "extra-files": []
+    }
+  }
+}
