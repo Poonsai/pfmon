@@ -1,5 +1,5 @@
-import { lookupVendor } from './oui.js';
 import { lookupCountry } from './geoip.js';
+import { lookupVendor } from './oui.js';
 import { guessDeviceType } from './rules.js';
 
 function normMac(mac) {
@@ -36,6 +36,17 @@ function ipInSubnet(ip, cidr) {
   return (n & mask) === (b & mask);
 }
 
+// Unique key for a single firewall state record. Each pf state is a 5-tuple
+// (proto, src ip:port, dst ip:port, direction) — concat them as the map key.
+function stateKey(st) {
+  return [
+    st.protocol ?? st.proto ?? '',
+    st.source ?? st.src ?? '',
+    st.destination ?? st.dst ?? '',
+    st.direction ?? '',
+  ].join('|');
+}
+
 export function buildSnapshot({
   arp,
   dhcpLeases,
@@ -44,6 +55,13 @@ export function buildSnapshot({
   interfaces,
   ouiMap,
   geoRanges,
+  // Per-state byte totals from the previous poll. Required for accurate per-flow
+  // delta accounting: summing bytes across active states is not a monotone
+  // cumulative counter (it drops when states expire), so a device-level delta
+  // computed from those sums would clamp to 0 on the next poll and silently
+  // lose every byte that the disappearing state transferred since it was last
+  // observed. Tracking per-state lets us sum positive deltas across states.
+  prevStateBytes,
 }) {
   const devices = {};
   function ensure(mac) {
@@ -61,6 +79,8 @@ export function buildSnapshot({
         states_count: 0,
         rx_bytes_total: 0,
         tx_bytes_total: 0,
+        rx_bytes_delta: 0,
+        tx_bytes_delta: 0,
         countries: {},
       };
     }
@@ -100,22 +120,48 @@ export function buildSnapshot({
 
   // pfRest 2.8: state.source/destination are "ip:port" strings.
   // Older variants exposed bare IPs on state.src / state.dst.
+  // Index both v4 and v6 addresses — most devices on a home network are
+  // dual-stack, and without v6 in the map all v6 firewall states get silently
+  // unattributed (states_count and bytes_delta drop a non-trivial share of
+  // device traffic, especially DNS/QUIC).
   const devByIp = new Map();
-  for (const d of Object.values(devices)) if (d.ip) devByIp.set(d.ip, d);
+  for (const d of Object.values(devices)) {
+    if (d.ip) devByIp.set(d.ip, d);
+    if (d.ipv6) devByIp.set(d.ipv6, d);
+  }
+  const nextStateBytes = new Map();
   for (const st of firewallStates ?? []) {
     const srcIp = ipFromEndpoint(st.source) ?? st.src ?? null;
     const dstIp = ipFromEndpoint(st.destination) ?? st.dst ?? null;
-    const dev = srcIp ? devByIp.get(srcIp) : null;
-    if (!dev) continue;
-    dev.states_count += 1;
     // bytes_in is forward-flow (source -> destination); bytes_out is the
     // reverse. The matched device is the state's source, so bytes_in is what
     // the device transmitted (tx) and bytes_out is what it received (rx).
-    dev.tx_bytes_total += Number(st.bytes_in ?? 0);
-    dev.rx_bytes_total += Number(st.bytes_out ?? 0);
+    const txTotal = Number(st.bytes_in ?? 0);
+    const rxTotal = Number(st.bytes_out ?? 0);
+    // Track per-state totals for next poll's delta computation, regardless of
+    // whether we can attribute the state to a known device.
+    const key = stateKey(st);
+    if (key !== '|||') nextStateBytes.set(key, { rx: rxTotal, tx: txTotal });
+
+    const dev = srcIp ? devByIp.get(srcIp) : null;
+    if (!dev) continue;
+    dev.states_count += 1;
+    dev.tx_bytes_total += txTotal;
+    dev.rx_bytes_total += rxTotal;
+
+    const prev = prevStateBytes?.get(key);
+    // New state on first observation contributes 0 to the delta — its bytes_in
+    // could be substantial if pfmon just started or the state was created
+    // between polls, and we have no baseline to subtract. Conservative: attribute
+    // 0 now, and capture this state's growth from the next poll onward.
+    const txDelta = prev ? Math.max(0, txTotal - prev.tx) : 0;
+    const rxDelta = prev ? Math.max(0, rxTotal - prev.rx) : 0;
+    dev.tx_bytes_delta += txDelta;
+    dev.rx_bytes_delta += rxDelta;
+
     const cc = lookupCountry(geoRanges ?? [], dstIp);
     if (cc) dev.countries[cc] = (dev.countries[cc] ?? 0) + 1;
   }
 
-  return { devices };
+  return { devices, stateBytes: nextStateBytes };
 }

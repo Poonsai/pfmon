@@ -100,14 +100,10 @@ export function reconcileDevices(db, { snapshot, now, staleAfterSec }) {
 }
 
 export function recordTrafficSamples(db, { snapshot, now }) {
+  // Deltas are precomputed per-state in buildSnapshot using prevStateBytes;
+  // the snapshot's rx_bytes_delta/tx_bytes_delta is already the sum of positive
+  // per-flow deltas for this device since the last poll.
   const selDev = db.prepare('SELECT id FROM devices WHERE mac = ?');
-  const selPrev = db.prepare(
-    'SELECT rx_total, tx_total FROM device_counter_state WHERE device_id = ?',
-  );
-  const upsertPrev = db.prepare(`
-    INSERT INTO device_counter_state (device_id, rx_total, tx_total) VALUES (?, ?, ?)
-    ON CONFLICT(device_id) DO UPDATE SET rx_total = excluded.rx_total, tx_total = excluded.tx_total
-  `);
   const insSample = db.prepare(`
     INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, ?)
   `);
@@ -115,11 +111,13 @@ export function recordTrafficSamples(db, { snapshot, now }) {
     for (const [mac, d] of Object.entries(snapshot.devices)) {
       const devRow = selDev.get(mac);
       if (!devRow) continue;
-      const prev = selPrev.get(devRow.id);
-      const rxDelta = prev ? Math.max(0, d.rx_bytes_total - prev.rx_total) : 0;
-      const txDelta = prev ? Math.max(0, d.tx_bytes_total - prev.tx_total) : 0;
-      upsertPrev.run(devRow.id, d.rx_bytes_total, d.tx_bytes_total);
-      insSample.run(devRow.id, now, rxDelta, txDelta, d.states_count ?? 0);
+      insSample.run(
+        devRow.id,
+        now,
+        d.rx_bytes_delta ?? 0,
+        d.tx_bytes_delta ?? 0,
+        d.states_count ?? 0,
+      );
     }
   });
   tx();

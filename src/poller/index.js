@@ -1,16 +1,16 @@
 import cron from 'node-cron';
-import { buildSnapshot } from './snapshot.js';
+import { maybeFireNewDeviceAlerts } from './alerts.js';
 import { normalizeInterfaces } from './interfaces.js';
 import {
-  syncInterfaces,
   reconcileDevices,
-  recordTrafficSamples,
-  recordInterfaceTrafficSamples,
-  recordGeoConnections,
   recordFirewallBlocks,
+  recordGeoConnections,
+  recordInterfaceTrafficSamples,
+  recordTrafficSamples,
+  syncInterfaces,
 } from './reconcile.js';
-import { maybeFireNewDeviceAlerts } from './alerts.js';
-import { pruneOldRows, rollupHourly, rollupDaily } from './retention.js';
+import { pruneOldRows, rollupDaily, rollupHourly } from './retention.js';
+import { buildSnapshot } from './snapshot.js';
 
 export async function runOnePoll({
   db,
@@ -22,6 +22,8 @@ export async function runOnePoll({
   ntfyTopicUrl,
   graceSec,
   wanOverride,
+  prevStateBytes,
+  ntfyRetry,
 }) {
   const start = Date.now();
   try {
@@ -47,6 +49,7 @@ export async function runOnePoll({
       interfaces,
       ouiMap,
       geoRanges,
+      prevStateBytes,
     });
 
     reconcileDevices(db, { snapshot, now, staleAfterSec });
@@ -55,14 +58,14 @@ export async function runOnePoll({
     recordGeoConnections(db, { snapshot, now });
     recordFirewallBlocks(db, { blocks: filterLogBlocks });
 
-    await maybeFireNewDeviceAlerts(db, { topicUrl: ntfyTopicUrl, now, graceSec });
+    await maybeFireNewDeviceAlerts(db, { topicUrl: ntfyTopicUrl, now, graceSec, ntfyRetry });
 
     const duration = Date.now() - start;
     db.prepare('INSERT INTO poll_log (ts, success, duration_ms) VALUES (?, 1, ?)').run(
       now,
       duration,
     );
-    return { success: true, duration_ms: duration };
+    return { success: true, duration_ms: duration, stateBytes: snapshot.stateBytes };
   } catch (e) {
     const duration = Date.now() - start;
     db.prepare(
@@ -82,38 +85,59 @@ export function startScheduler({
   ntfyTopicUrl,
   graceSec,
   wanOverride,
+  initialStateBytes,
+  ntfyRetry,
 }) {
   let consecutiveFails = 0;
   let nextRunAt = Date.now();
+  // Cron fires every 5s, but a poll can take longer than that (especially under
+  // a slow pfRest). Without a re-entry guard the second cron tick races the
+  // first into runOnePoll, producing duplicate rows in traffic_samples and
+  // poll_log for the same `now`. inFlight also lets stop() await a running poll
+  // so the caller can safely close the DB without writing into a closed handle.
+  let inFlight = Promise.resolve();
+  let running = false;
+  let prevStateBytes = initialStateBytes ?? new Map();
 
   async function tick() {
-    if (Date.now() < nextRunAt) return;
-    const now = Math.floor(Date.now() / 1000);
-    const result = await runOnePoll({
-      db,
-      client,
-      ouiMap,
-      geoRanges,
-      now,
-      staleAfterSec,
-      ntfyTopicUrl,
-      graceSec,
-      wanOverride,
-    });
-    if (result.success) {
-      consecutiveFails = 0;
-      nextRunAt = Date.now() + intervalSec * 1000;
-    } else {
-      consecutiveFails += 1;
-      const backoffSec =
-        consecutiveFails < 3
-          ? intervalSec
-          : Math.min(300, intervalSec * 2 ** Math.min(4, consecutiveFails - 2));
-      nextRunAt = Date.now() + backoffSec * 1000;
-      console.log(
-        JSON.stringify({ level: 'warn', msg: 'poll failed', consecutiveFails, backoffSec }),
-      );
-    }
+    if (running || Date.now() < nextRunAt) return;
+    running = true;
+    inFlight = (async () => {
+      try {
+        const now = Math.floor(Date.now() / 1000);
+        const result = await runOnePoll({
+          db,
+          client,
+          ouiMap,
+          geoRanges,
+          now,
+          staleAfterSec,
+          ntfyTopicUrl,
+          graceSec,
+          wanOverride,
+          prevStateBytes,
+          ntfyRetry,
+        });
+        if (result.success) {
+          consecutiveFails = 0;
+          nextRunAt = Date.now() + intervalSec * 1000;
+          if (result.stateBytes) prevStateBytes = result.stateBytes;
+        } else {
+          consecutiveFails += 1;
+          const backoffSec =
+            consecutiveFails < 3
+              ? intervalSec
+              : Math.min(300, intervalSec * 2 ** Math.min(4, consecutiveFails - 2));
+          nextRunAt = Date.now() + backoffSec * 1000;
+          console.log(
+            JSON.stringify({ level: 'warn', msg: 'poll failed', consecutiveFails, backoffSec }),
+          );
+        }
+      } finally {
+        running = false;
+      }
+    })();
+    await inFlight;
   }
 
   const fastTask = cron.schedule('*/5 * * * * *', tick);
@@ -127,10 +151,11 @@ export function startScheduler({
   });
 
   return {
-    stop: () => {
+    stop: async () => {
       fastTask.stop();
       hourlyTask.stop();
       dailyTask.stop();
+      await inFlight;
     },
   };
 }

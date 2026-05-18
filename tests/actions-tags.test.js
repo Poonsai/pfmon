@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import Database from 'better-sqlite3';
 import express from 'express';
 import request from 'supertest';
-import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { runMigrations } from '../src/db.js';
 import { buildActionsRouter } from '../src/routes/actions.js';
 
@@ -63,5 +63,13 @@ describe('device tags', () => {
     expect(res.text.trim()).toBe('');
     const tags = db.prepare('SELECT tag FROM device_tags WHERE device_id = ?').all(id);
     expect(tags).toEqual([]);
+  });
+
+  it('DELETE returns 400 (not 500) when the tag in the URL is a malformed % escape', async () => {
+    // Regression: decodeURIComponent throws URIError on bytes like %FF, which
+    // surfaced as an unhandled exception and a generic 500 from Express.
+    const { db, id } = setup();
+    const res = await request(makeApp(db)).delete(`/devices/${id}/tags/%FF`);
+    expect(res.status).toBe(400);
   });
 });

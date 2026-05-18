@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import request from 'supertest';
 import express from 'express';
+import request from 'supertest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { buildHealthRouter } from '../src/health.js';
 
 describe('GET /api/health', () => {
@@ -13,5 +13,15 @@ describe('GET /api/health', () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
+  });
+
+  it('reports the package version from package.json, not from npm_package_version', async () => {
+    // Production runs `node src/index.js` (Dockerfile CMD), which does not set
+    // npm_package_version. The version must come from a source available in
+    // that environment — reading package.json at startup.
+    const res = await request(app).get('/api/health');
+    expect(res.body.version).toBeTypeOf('string');
+    expect(res.body.version.length).toBeGreaterThan(0);
+    expect(res.body.version).not.toBe('undefined');
   });
 });

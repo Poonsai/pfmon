@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
+import { describe, expect, it } from 'vitest';
 import { runMigrations } from '../src/db.js';
 import {
-  syncInterfaces,
   reconcileDevices,
-  recordTrafficSamples,
   recordInterfaceTrafficSamples,
+  recordTrafficSamples,
+  syncInterfaces,
 } from '../src/poller/reconcile.js';
 
 function fresh() {
@@ -49,12 +49,15 @@ function dev(overrides) {
 }
 
 describe('reconcile traffic', () => {
-  it('records the byte-delta from the previous sample for each device', () => {
+  it('persists the per-poll deltas precomputed by buildSnapshot', () => {
+    // recordTrafficSamples no longer derives deltas from a cumulative counter;
+    // buildSnapshot computes positive per-flow deltas using prevStateBytes and
+    // writes them onto the device. recordTrafficSamples just stores them.
     const db = fresh();
     reconcileDevices(db, {
       snapshot: {
         devices: {
-          'aa:bb:cc:dd:ee:ff': dev({ rx_bytes_total: 1000, tx_bytes_total: 500, states_count: 3 }),
+          'aa:bb:cc:dd:ee:ff': dev({ rx_bytes_delta: 0, tx_bytes_delta: 0, states_count: 3 }),
         },
       },
       now: 1000,
@@ -63,7 +66,7 @@ describe('reconcile traffic', () => {
     recordTrafficSamples(db, {
       snapshot: {
         devices: {
-          'aa:bb:cc:dd:ee:ff': dev({ rx_bytes_total: 1000, tx_bytes_total: 500, states_count: 3 }),
+          'aa:bb:cc:dd:ee:ff': dev({ rx_bytes_delta: 0, tx_bytes_delta: 0, states_count: 3 }),
         },
       },
       now: 1000,
@@ -76,7 +79,11 @@ describe('reconcile traffic', () => {
     recordTrafficSamples(db, {
       snapshot: {
         devices: {
-          'aa:bb:cc:dd:ee:ff': dev({ rx_bytes_total: 1500, tx_bytes_total: 700, states_count: 5 }),
+          'aa:bb:cc:dd:ee:ff': dev({
+            rx_bytes_delta: 500,
+            tx_bytes_delta: 200,
+            states_count: 5,
+          }),
         },
       },
       now: 1030,

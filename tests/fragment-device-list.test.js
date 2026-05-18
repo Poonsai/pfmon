@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import Database from 'better-sqlite3';
+import * as cheerio from 'cheerio';
 import express from 'express';
 import request from 'supertest';
-import * as cheerio from 'cheerio';
-import Database from 'better-sqlite3';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { runMigrations } from '../src/db.js';
 import { buildFragmentsRouter } from '../src/routes/fragments.js';
 
@@ -80,6 +80,40 @@ describe('GET /fragments/device-list', () => {
     const res = await request(makeApp(db)).get('/fragments/device-list');
     expect(res.text).toContain('jane-iphone');
     expect(res.text).toContain('living-room-tv');
+  });
+
+  it('sorts by IP numerically, not lexicographically', async () => {
+    // Regression: SQLite ORDER BY on a TEXT column does a string comparison,
+    // so "10.0.0.10" used to sort BEFORE "10.0.0.9". The post-fetch JS sort
+    // converts each address to a numeric key so the order matches a human's
+    // expectation.
+    const fresh = new Database(':memory:');
+    runMigrations(fresh);
+    const now = Math.floor(Date.now() / 1000);
+    fresh
+      .prepare(
+        `INSERT INTO interfaces (pfsense_name, friendly_name, kind) VALUES ('lan','LAN','lan')`,
+      )
+      .run();
+    const ips = ['10.0.0.10', '10.0.0.9', '10.0.0.2', '10.0.0.100'];
+    let macCounter = 1;
+    for (const ip of ips) {
+      const mac = `aa:bb:cc:dd:ee:${String(macCounter++).padStart(2, '0')}`;
+      fresh
+        .prepare(
+          `INSERT INTO devices (mac, current_ip, is_online, first_seen_at, last_seen_at)
+           VALUES (?, ?, 1, ?, ?)`,
+        )
+        .run(mac, ip, now, now);
+    }
+
+    const res = await request(makeApp(fresh)).get('/fragments/device-list?sort=ip');
+    expect(res.status).toBe(200);
+    const $ = cheerio.load(res.text);
+    const order = $('table.device-list tbody tr td:nth-child(2)')
+      .toArray()
+      .map((td) => $(td).text());
+    expect(order).toEqual(['10.0.0.2', '10.0.0.9', '10.0.0.10', '10.0.0.100']);
   });
 
   it('sorts by bytes_today using current-hour samples not yet rolled up', async () => {

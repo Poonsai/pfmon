@@ -55,7 +55,14 @@ export function buildActionsRouter({ db }) {
 
   router.delete('/devices/:id/tags/:tag', (req, res) => {
     const id = Number(req.params.id);
-    const tag = decodeURIComponent(req.params.tag).toLowerCase();
+    let tag;
+    try {
+      // decodeURIComponent throws URIError on malformed % escapes like '%FF'.
+      // Catch and 400 rather than letting Express return a 500.
+      tag = decodeURIComponent(req.params.tag).toLowerCase();
+    } catch (_e) {
+      return res.status(400).send('bad tag');
+    }
     db.prepare('DELETE FROM device_tags WHERE device_id = ? AND tag = ?').run(id, tag);
     res.send('');
   });

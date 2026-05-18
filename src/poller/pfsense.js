@@ -33,7 +33,9 @@ export function createPfsenseClient({ baseUrl, apiKey, verifyTls, timeoutMs = 10
       });
       if (!res.ok) {
         const body = await res.text().catch(() => '');
-        throw new Error(`pfRest ${path} -> ${res.status}: ${body.slice(0, 200)}`);
+        const err = new Error(`pfRest ${path} -> ${res.status}: ${body.slice(0, 200)}`);
+        err.status = res.status;
+        throw err;
       }
       const json = await res.json();
       return json.data ?? json;
@@ -46,7 +48,7 @@ export function createPfsenseClient({ baseUrl, apiKey, verifyTls, timeoutMs = 10
     try {
       return await call(path);
     } catch (e) {
-      if (/404/.test(e.message)) return [];
+      if (e?.status === 404) return [];
       throw e;
     }
   }

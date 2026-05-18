@@ -7,15 +7,28 @@ export function loadConfig() {
     }
     return v;
   };
+  // Number('') is 0 and Number('abc') is NaN — both produce dangerous values
+  // downstream (e.g. a NaN pollIntervalSec makes the scheduler tick continuously
+  // without delay). Validate positive integer here so misconfiguration fails fast.
+  const positiveInt = (name, fallback) => {
+    const raw = process.env[name];
+    if (raw == null || raw === '') return fallback;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
+      console.error(`invalid env: ${name}=${raw} (expected positive integer)`);
+      process.exit(2);
+    }
+    return n;
+  };
   return {
     pfsenseUrl: required('PFSENSE_URL'),
     pfsenseApiKey: required('PFSENSE_API_KEY'),
     pfsenseVerifyTls: (process.env.PFSENSE_VERIFY_TLS ?? 'true') !== 'false',
-    pollIntervalSec: Number(process.env.POLL_INTERVAL_SECONDS ?? 30),
+    pollIntervalSec: positiveInt('POLL_INTERVAL_SECONDS', 30),
     ntfyTopicUrl: process.env.NTFY_TOPIC_URL ?? '',
-    newDeviceGraceMinutes: Number(process.env.NEW_DEVICE_GRACE_MINUTES ?? 5),
+    newDeviceGraceMinutes: positiveInt('NEW_DEVICE_GRACE_MINUTES', 5),
     dbPath: process.env.DB_PATH ?? '/data/pfmon.db',
-    port: Number(process.env.PORT ?? 8080),
+    port: positiveInt('PORT', 8080),
     logLevel: process.env.LOG_LEVEL ?? 'info',
     wanInterfaceName: process.env.WAN_INTERFACE_NAME || null,
     ouiPath: process.env.OUI_PATH ?? new URL('../data/oui.csv', import.meta.url).pathname,
