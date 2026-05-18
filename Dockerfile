@@ -4,6 +4,9 @@ WORKDIR /build
 RUN apk add --no-cache python3 make g++
 
 COPY package.json package-lock.json ./
+# Use `npm install` rather than `npm ci` so that platform-specific optional deps
+# (e.g., @emnapi/* needed by better-sqlite3 on Linux) get resolved at build time.
+# The lockfile is generated on Windows during local dev and is missing those entries.
 RUN CI=true npm install --omit=dev
 
 COPY src ./src

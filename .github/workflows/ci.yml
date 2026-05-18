@@ -14,7 +14,9 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
+      # Use `npm install` (not `npm ci`) to handle platform-specific optional deps
+      # absent from a Windows-generated lockfile (see Dockerfile for the same note).
+      - run: npm install
       - run: npm test
 
   docker-build:
