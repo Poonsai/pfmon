@@ -110,6 +110,27 @@ function sumDeviceBytesAllTime(db, { deviceId }) {
     .get({ id: deviceId });
 }
 
+export function getTopTalkers(db, { sinceTs, limit }) {
+  const bytesExpr = deviceBytesSinceSql({
+    column: 'rx_bytes + tx_bytes',
+    deviceIdExpr: 'd.id',
+    sinceParam: '@sinceTs',
+  });
+  return db
+    .prepare(`
+    SELECT d.id, d.mac, d.hostname, d.nickname, d.current_ip,
+           d.device_type_guess, d.is_online,
+           i.pfsense_name AS interface_name, i.friendly_name AS interface_friendly,
+           ${bytesExpr} AS bytes
+    FROM devices d
+    LEFT JOIN interfaces i ON i.id = d.interface_id
+    WHERE ${bytesExpr} > 0
+    ORDER BY bytes DESC
+    LIMIT @limit
+  `)
+    .all({ sinceTs, limit });
+}
+
 function sumInterfaceBytes(db, { interfaceId, sinceTs }) {
   return db
     .prepare(`
