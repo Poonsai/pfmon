@@ -46,6 +46,15 @@ describe('GET /', () => {
     expect($('select[name="sort"] option[selected]').attr('value')).toBe('last_seen');
   });
 
+  it('mounts the top-talkers fragment host div with auto-refresh wiring', async () => {
+    const res = await request(makeApp()).get('/');
+    const $ = cheerio.load(res.text);
+    const host = $('[data-fragment="top-talkers"]');
+    expect(host.length).toBe(1);
+    expect(host.attr('hx-get')).toBe('/fragments/top-talkers');
+    expect(host.attr('hx-trigger')).toMatch(/every/);
+  });
+
   it('pre-fills the controls form from query string so F5 restores selections', async () => {
     const res = await request(makeApp()).get('/?q=jane&status=online&sort=bytes_today');
     expect(res.status).toBe(200);

@@ -30,6 +30,8 @@
 
   <div data-fragment="wan-summary" hx-get="/fragments/wan-summary" hx-trigger="load, every 30s" hx-swap="innerHTML"></div>
 
+  <div data-fragment="top-talkers" hx-get="/fragments/top-talkers" hx-trigger="load, every 30s" hx-swap="innerHTML"></div>
+
   <% const q = (typeof query !== 'undefined' && query) ? query : { q:'', status:'', vlan:'', sort:'last_seen' }; %>
   <form class="controls" hx-get="/fragments/device-list" hx-target="[data-fragment='device-list']" hx-trigger="input changed delay:300ms, change" hx-on::after-request="pfmonSyncUrl(this)">
     <input type="search" name="q" placeholder="Search name, IP, MAC, vendor, tag..." value="<%= q.q %>">
