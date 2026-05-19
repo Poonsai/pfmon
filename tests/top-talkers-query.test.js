@@ -16,16 +16,7 @@ describe('getTopTalkers', () => {
       ('aa:00:00:00:00:01','heavy','10.0.0.1',1,?,?),
       ('aa:00:00:00:00:02','medium','10.0.0.2',1,?,?),
       ('aa:00:00:00:00:03','light','10.0.0.3',1,?,?),
-      ('aa:00:00:00:00:04','silent','10.0.0.4',1,?,?)`).run(
-      now,
-      now,
-      now,
-      now,
-      now,
-      now,
-      now,
-      now,
-    );
+      ('aa:00:00:00:00:04','silent','10.0.0.4',1,?,?)`).run(now, now, now, now, now, now, now, now);
     const heavy = db.prepare("SELECT id FROM devices WHERE mac='aa:00:00:00:00:01'").get().id;
     const medium = db.prepare("SELECT id FROM devices WHERE mac='aa:00:00:00:00:02'").get().id;
     const light = db.prepare("SELECT id FROM devices WHERE mac='aa:00:00:00:00:03'").get().id;

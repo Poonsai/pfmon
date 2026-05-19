@@ -79,9 +79,9 @@ describe('GET /fragments/top-talkers', () => {
       const res = await request(makeApp(db)).get(`/fragments/top-talkers?range=${r}`);
       expect(res.status).toBe(200);
       const $ = cheerio.load(res.text);
-      expect(
-        $(`button.action.primary`).filter((_, el) => $(el).text().trim() === r).length,
-      ).toBe(1);
+      expect($(`button.action.primary`).filter((_, el) => $(el).text().trim() === r).length).toBe(
+        1,
+      );
     }
   });
 

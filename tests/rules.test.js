@@ -47,9 +47,9 @@ describe('rules.guessDeviceType', () => {
     expect(guessDeviceType({ vendor: 'Nest Labs Inc.', hostname: 'thermostat' })).toBe('Nest');
   });
   it('returns Router/AP for common networking vendors', () => {
-    expect(
-      guessDeviceType({ vendor: 'TP-LINK TECHNOLOGIES CO.,LTD.', hostname: 'ap-1' }),
-    ).toBe('Router or AP');
+    expect(guessDeviceType({ vendor: 'TP-LINK TECHNOLOGIES CO.,LTD.', hostname: 'ap-1' })).toBe(
+      'Router or AP',
+    );
     expect(guessDeviceType({ vendor: 'NETGEAR', hostname: 'router' })).toBe('Router or AP');
     expect(guessDeviceType({ vendor: 'ASUSTek COMPUTER INC.', hostname: 'asus-rt' })).toBe(
       'Router or AP',
