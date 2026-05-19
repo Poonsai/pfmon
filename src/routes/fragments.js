@@ -46,31 +46,56 @@ function ipv4SortKey(ip) {
 // hasn't fired yet (fresh-start scenario, or briefly each hour) — dashboard queries union
 // rollup rows with sample rows but partition by *existence* of the rollup row, not a
 // wall-clock boundary. A sample is counted only if no rollup row covers its bucket.
+//
+// `column` is a hardcoded SQL expression (one of 'rx_bytes', 'tx_bytes',
+// 'rx_bytes + tx_bytes') and never user input; `deviceIdExpr` / `sinceParam`
+// are caller-controlled bind placeholders or column references.
+function deviceBytesSinceSql({ column, deviceIdExpr, sinceParam }) {
+  return `(
+    COALESCE((SELECT SUM(${column}) FROM traffic_hourly th
+              WHERE th.device_id = ${deviceIdExpr} AND th.hour_bucket >= ${sinceParam}), 0)
+    + COALESCE((SELECT SUM(${column}) FROM traffic_samples ts
+                WHERE ts.device_id = ${deviceIdExpr} AND ts.ts >= ${sinceParam}
+                AND NOT EXISTS (
+                  SELECT 1 FROM traffic_hourly h
+                  WHERE h.device_id = ts.device_id
+                  AND h.hour_bucket = (ts.ts / 3600) * 3600
+                )), 0)
+  )`;
+}
+
+function deviceBytesAllTimeSql({ column, deviceIdExpr }) {
+  return `(
+    COALESCE((SELECT SUM(${column}) FROM traffic_daily td
+              WHERE td.device_id = ${deviceIdExpr}), 0)
+    + COALESCE((SELECT SUM(${column}) FROM traffic_hourly th
+                WHERE th.device_id = ${deviceIdExpr}
+                AND NOT EXISTS (
+                  SELECT 1 FROM traffic_daily d
+                  WHERE d.device_id = th.device_id
+                  AND d.day_bucket = (th.hour_bucket / 86400) * 86400
+                )), 0)
+    + COALESCE((SELECT SUM(${column}) FROM traffic_samples ts
+                WHERE ts.device_id = ${deviceIdExpr}
+                AND NOT EXISTS (
+                  SELECT 1 FROM traffic_hourly h
+                  WHERE h.device_id = ts.device_id
+                  AND h.hour_bucket = (ts.ts / 3600) * 3600
+                )
+                AND NOT EXISTS (
+                  SELECT 1 FROM traffic_daily d
+                  WHERE d.device_id = ts.device_id
+                  AND d.day_bucket = (ts.ts / 86400) * 86400
+                )), 0)
+  )`;
+}
 
 function sumDeviceBytes(db, { deviceId, sinceTs }) {
   return db
     .prepare(`
     SELECT
-      COALESCE((SELECT SUM(rx_bytes) FROM traffic_hourly
-                WHERE device_id = @id AND hour_bucket >= @sinceTs), 0)
-      + COALESCE((SELECT SUM(rx_bytes) FROM traffic_samples s
-                  WHERE s.device_id = @id AND s.ts >= @sinceTs
-                  AND NOT EXISTS (
-                    SELECT 1 FROM traffic_hourly h
-                    WHERE h.device_id = s.device_id
-                    AND h.hour_bucket = (s.ts / 3600) * 3600
-                  )), 0)
-      AS rx,
-      COALESCE((SELECT SUM(tx_bytes) FROM traffic_hourly
-                WHERE device_id = @id AND hour_bucket >= @sinceTs), 0)
-      + COALESCE((SELECT SUM(tx_bytes) FROM traffic_samples s
-                  WHERE s.device_id = @id AND s.ts >= @sinceTs
-                  AND NOT EXISTS (
-                    SELECT 1 FROM traffic_hourly h
-                    WHERE h.device_id = s.device_id
-                    AND h.hour_bucket = (s.ts / 3600) * 3600
-                  )), 0)
-      AS tx
+      ${deviceBytesSinceSql({ column: 'rx_bytes', deviceIdExpr: '@id', sinceParam: '@sinceTs' })} AS rx,
+      ${deviceBytesSinceSql({ column: 'tx_bytes', deviceIdExpr: '@id', sinceParam: '@sinceTs' })} AS tx
   `)
     .get({ id: deviceId, sinceTs });
 }
@@ -79,50 +104,8 @@ function sumDeviceBytesAllTime(db, { deviceId }) {
   return db
     .prepare(`
     SELECT
-      COALESCE((SELECT SUM(rx_bytes) FROM traffic_daily
-                WHERE device_id = @id), 0)
-      + COALESCE((SELECT SUM(rx_bytes) FROM traffic_hourly h
-                  WHERE h.device_id = @id
-                  AND NOT EXISTS (
-                    SELECT 1 FROM traffic_daily d
-                    WHERE d.device_id = h.device_id
-                    AND d.day_bucket = (h.hour_bucket / 86400) * 86400
-                  )), 0)
-      + COALESCE((SELECT SUM(rx_bytes) FROM traffic_samples s
-                  WHERE s.device_id = @id
-                  AND NOT EXISTS (
-                    SELECT 1 FROM traffic_hourly h
-                    WHERE h.device_id = s.device_id
-                    AND h.hour_bucket = (s.ts / 3600) * 3600
-                  )
-                  AND NOT EXISTS (
-                    SELECT 1 FROM traffic_daily d
-                    WHERE d.device_id = s.device_id
-                    AND d.day_bucket = (s.ts / 86400) * 86400
-                  )), 0)
-      AS rx,
-      COALESCE((SELECT SUM(tx_bytes) FROM traffic_daily
-                WHERE device_id = @id), 0)
-      + COALESCE((SELECT SUM(tx_bytes) FROM traffic_hourly h
-                  WHERE h.device_id = @id
-                  AND NOT EXISTS (
-                    SELECT 1 FROM traffic_daily d
-                    WHERE d.device_id = h.device_id
-                    AND d.day_bucket = (h.hour_bucket / 86400) * 86400
-                  )), 0)
-      + COALESCE((SELECT SUM(tx_bytes) FROM traffic_samples s
-                  WHERE s.device_id = @id
-                  AND NOT EXISTS (
-                    SELECT 1 FROM traffic_hourly h
-                    WHERE h.device_id = s.device_id
-                    AND h.hour_bucket = (s.ts / 3600) * 3600
-                  )
-                  AND NOT EXISTS (
-                    SELECT 1 FROM traffic_daily d
-                    WHERE d.device_id = s.device_id
-                    AND d.day_bucket = (s.ts / 86400) * 86400
-                  )), 0)
-      AS tx
+      ${deviceBytesAllTimeSql({ column: 'rx_bytes', deviceIdExpr: '@id' })} AS rx,
+      ${deviceBytesAllTimeSql({ column: 'tx_bytes', deviceIdExpr: '@id' })} AS tx
   `)
     .get({ id: deviceId });
 }
@@ -231,20 +214,11 @@ export function buildFragmentsRouter({ db }) {
 
     const now = Math.floor(Date.now() / 1000);
     const bytesTodayStart = now - 24 * 3600;
-    // Mirrors sumDeviceBytes: hourly buckets in range, plus samples whose bucket
-    // isn't already in hourly. The existence-based partition keeps this correct
-    // when the hourly rollup hasn't fired yet for a covered hour.
-    const bytesTodaySql = `(
-      COALESCE((SELECT SUM(rx_bytes + tx_bytes) FROM traffic_hourly th
-                WHERE th.device_id = d.id AND th.hour_bucket >= @bytesTodayStart), 0)
-      + COALESCE((SELECT SUM(rx_bytes + tx_bytes) FROM traffic_samples ts
-                  WHERE ts.device_id = d.id AND ts.ts >= @bytesTodayStart
-                  AND NOT EXISTS (
-                    SELECT 1 FROM traffic_hourly th2
-                    WHERE th2.device_id = ts.device_id
-                    AND th2.hour_bucket = (ts.ts / 3600) * 3600
-                  )), 0)
-    )`;
+    const bytesTodaySql = deviceBytesSinceSql({
+      column: 'rx_bytes + tx_bytes',
+      deviceIdExpr: 'd.id',
+      sinceParam: '@bytesTodayStart',
+    });
 
     let orderBy = 'd.last_seen_at DESC';
     if (sort === 'name') orderBy = "COALESCE(d.nickname, d.hostname, '') COLLATE NOCASE";
