@@ -219,6 +219,28 @@ table.device-list td { padding: 6px 10px; }
   vertical-align: middle;
 }
 
+table.top-talkers {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.top-talkers thead th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--fg-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+table.top-talkers tbody tr {
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+table.top-talkers tbody tr:hover { background: var(--bg-row-hover); }
+table.top-talkers tbody td { padding: 6px 8px; }
+
 .tag-chip {
   display: inline-block;
   background: var(--accent-bg);

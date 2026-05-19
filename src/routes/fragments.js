@@ -326,6 +326,16 @@ export function buildFragmentsRouter({ db }) {
     res.render('fragments/wan-summary', { wan, today, week, month, range, chartSvg, formatBytes });
   });
 
+  router.get('/fragments/top-talkers', (req, res) => {
+    const allowed = ['24h', '7d', '30d'];
+    const range = allowed.includes(req.query.range) ? req.query.range : '24h';
+    const rangeSec = range === '24h' ? 24 * 3600 : range === '7d' ? 7 * 86400 : 30 * 86400;
+    const now = Math.floor(Date.now() / 1000);
+    const rows = getTopTalkers(db, { sinceTs: now - rangeSec, limit: 10 });
+    const totalBytes = rows.reduce((sum, r) => sum + r.bytes, 0);
+    res.render('fragments/top-talkers', { rows, range, totalBytes, formatBytes });
+  });
+
   router.get('/fragments/device/:id', (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).send('bad id');

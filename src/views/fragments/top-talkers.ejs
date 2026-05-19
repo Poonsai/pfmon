@@ -1,0 +1,50 @@
+<div class="top-talkers-wrap">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px;">
+    <div>
+      <div style="font-size:10px;color:var(--fg-muted);text-transform:uppercase;letter-spacing:0.5px;">Top talkers &mdash; last <%= range %></div>
+      <div style="font-size:11px;color:var(--fg-muted);">Total across top devices: <%= formatBytes(totalBytes) %></div>
+    </div>
+    <div style="display:flex;gap:4px;font-size:11px;">
+      <% ['24h','7d','30d'].forEach(function(r) { %>
+        <button class="action <%= r === range ? 'primary' : '' %>"
+                hx-get="/fragments/top-talkers?range=<%= r %>"
+                hx-target="[data-fragment='top-talkers']"
+                hx-swap="innerHTML"><%= r %></button>
+      <% }); %>
+    </div>
+  </div>
+  <% if (rows.length === 0) { %>
+    <p class="subtitle" style="padding:8px 0;">No traffic yet in this window.</p>
+  <% } else { %>
+    <table class="top-talkers">
+      <thead>
+        <tr>
+          <th>Device</th>
+          <th>IP</th>
+          <th>VLAN</th>
+          <th style="text-align:right;">Bytes</th>
+          <th style="text-align:right;">% of top</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.forEach(function(d) {
+          const display = d.nickname || d.hostname || `(${d.mac.slice(0, 8)}...)`;
+          const pct = totalBytes > 0 ? (d.bytes / totalBytes * 100).toFixed(1) : '0.0';
+        %>
+          <tr hx-get="/fragments/device/<%= d.id %>"
+              hx-target="#detail-panel"
+              hx-swap="innerHTML">
+            <td>
+              <span class="status-dot <%= d.is_online ? '' : 'offline' %>"></span>
+              <%= display %><% if (d.device_type_guess && d.device_type_guess !== 'Unknown') { %><span class="type-chip"><%= d.device_type_guess %></span><% } %>
+            </td>
+            <td><%= d.current_ip || '-' %></td>
+            <td><%= d.interface_friendly || d.interface_name || '-' %></td>
+            <td style="text-align:right;"><%= formatBytes(d.bytes) %></td>
+            <td style="text-align:right;color:var(--fg-muted);"><%= pct %>%</td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  <% } %>
+</div>
