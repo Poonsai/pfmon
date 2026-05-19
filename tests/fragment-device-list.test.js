@@ -150,4 +150,23 @@ describe('GET /fragments/device-list', () => {
     const firstRow = $('table.device-list tbody tr').first();
     expect(firstRow.text()).toContain('jane-iphone');
   });
+
+  it('renders the device_type_guess chip when set', async () => {
+    db.prepare(`UPDATE devices SET device_type_guess='iPhone' WHERE mac='aa:bb:cc:dd:ee:02'`).run();
+    const res = await request(makeApp(db)).get('/fragments/device-list');
+    const $ = cheerio.load(res.text);
+    const janeRow = $('table.device-list tbody tr').filter((_, el) =>
+      $(el).text().includes('jane-iphone'),
+    );
+    expect(janeRow.find('.type-chip').text().trim()).toBe('iPhone');
+  });
+
+  it('omits the type chip when device_type_guess is null or "Unknown"', async () => {
+    const res = await request(makeApp(db)).get('/fragments/device-list');
+    const $ = cheerio.load(res.text);
+    const echoRow = $('table.device-list tbody tr').filter((_, el) =>
+      $(el).text().includes('echo-dot'),
+    );
+    expect(echoRow.find('.type-chip').length).toBe(0);
+  });
 });

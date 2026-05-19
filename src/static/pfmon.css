@@ -207,6 +207,18 @@ table.device-list td { padding: 6px 10px; }
   margin-left: 4px;
 }
 
+.type-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 3px;
+  background: var(--bg-row-hover);
+  color: var(--fg-muted);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
 .tag-chip {
   display: inline-block;
   background: var(--accent-bg);

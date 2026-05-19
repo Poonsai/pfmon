@@ -230,7 +230,7 @@ export function buildFragmentsRouter({ db }) {
     const rows = db
       .prepare(`
       SELECT d.id, d.mac, d.vendor, d.hostname, d.nickname, d.current_ip,
-             d.is_online, d.last_seen_at, d.new_until_seen_at,
+             d.is_online, d.last_seen_at, d.new_until_seen_at, d.device_type_guess,
              i.pfsense_name AS interface_name, i.friendly_name AS interface_friendly,
              ${bytesTodaySql} AS bytes_today
       FROM devices d

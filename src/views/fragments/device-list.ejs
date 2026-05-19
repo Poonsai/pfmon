@@ -25,7 +25,7 @@
           hx-on::after-request="document.querySelectorAll('table.device-list tbody tr.selected').forEach(r=>r.classList.remove('selected')); this.classList.add('selected')">
         <td>
           <span class="status-dot <%= dotCls %>"></span>
-          <%= display %><% if (isNew) { %><span class="badge">NEW</span><% } %>
+          <%= display %><% if (isNew) { %><span class="badge">NEW</span><% } %><% if (d.device_type_guess && d.device_type_guess !== 'Unknown') { %><span class="type-chip"><%= d.device_type_guess %></span><% } %>
         </td>
         <td><%= d.current_ip || '-' %></td>
         <td><%= d.interface_friendly || d.interface_name || '-' %></td>
