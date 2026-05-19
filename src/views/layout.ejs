@@ -30,30 +30,31 @@
 
   <div data-fragment="wan-summary" hx-get="/fragments/wan-summary" hx-trigger="load, every 30s" hx-swap="innerHTML"></div>
 
-  <form class="controls" hx-get="/fragments/device-list" hx-target="[data-fragment='device-list']" hx-trigger="input changed delay:300ms, change">
-    <input type="search" name="q" placeholder="Search name, IP, MAC, vendor, tag...">
+  <% const q = (typeof query !== 'undefined' && query) ? query : { q:'', status:'', vlan:'', sort:'last_seen' }; %>
+  <form class="controls" hx-get="/fragments/device-list" hx-target="[data-fragment='device-list']" hx-trigger="input changed delay:300ms, change" hx-on::after-request="pfmonSyncUrl(this)">
+    <input type="search" name="q" placeholder="Search name, IP, MAC, vendor, tag..." value="<%= q.q %>">
     <select name="status">
-      <option value="">All status</option>
-      <option value="online">Online</option>
-      <option value="offline">Offline</option>
-      <option value="new">New</option>
+      <option value="" <%= q.status === '' ? 'selected' : '' %>>All status</option>
+      <option value="online" <%= q.status === 'online' ? 'selected' : '' %>>Online</option>
+      <option value="offline" <%= q.status === 'offline' ? 'selected' : '' %>>Offline</option>
+      <option value="new" <%= q.status === 'new' ? 'selected' : '' %>>New</option>
     </select>
     <select name="vlan">
-      <option value="">VLAN: All</option>
+      <option value="" <%= q.vlan === '' ? 'selected' : '' %>>VLAN: All</option>
       <% (typeof vlans !== 'undefined' ? vlans : []).forEach(function(v) { %>
-        <option value="<%= v.pfsense_name %>"><%= v.friendly_name || v.pfsense_name %></option>
+        <option value="<%= v.pfsense_name %>" <%= q.vlan === v.pfsense_name ? 'selected' : '' %>><%= v.friendly_name || v.pfsense_name %></option>
       <% }); %>
     </select>
     <select name="sort">
-      <option value="last_seen">Sort: last seen</option>
-      <option value="name">Name</option>
-      <option value="ip">IP</option>
-      <option value="bytes_today">Bytes today</option>
+      <option value="last_seen" <%= q.sort === 'last_seen' ? 'selected' : '' %>>Sort: last seen</option>
+      <option value="name" <%= q.sort === 'name' ? 'selected' : '' %>>Name</option>
+      <option value="ip" <%= q.sort === 'ip' ? 'selected' : '' %>>IP</option>
+      <option value="bytes_today" <%= q.sort === 'bytes_today' ? 'selected' : '' %>>Bytes today</option>
     </select>
   </form>
 
   <div class="master-detail">
-    <div class="master" data-fragment="device-list" hx-get="/fragments/device-list" hx-trigger="load, every 30s" hx-swap="innerHTML"></div>
+    <div class="master" data-fragment="device-list" hx-get="/fragments/device-list" hx-trigger="load, every 30s" hx-include=".controls" hx-swap="innerHTML"></div>
     <div class="detail" id="detail-panel">
       <p class="subtitle">Select a device to see details.</p>
     </div>

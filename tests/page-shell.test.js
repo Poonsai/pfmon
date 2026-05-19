@@ -30,6 +30,33 @@ describe('GET /', () => {
     expect($('button.theme-toggle').length).toBe(1);
   });
 
+  it('auto-refreshing device-list includes controls form so sort/filter survive refresh', async () => {
+    const res = await request(makeApp()).get('/');
+    const $ = cheerio.load(res.text);
+    const listEl = $('[data-fragment="device-list"]');
+    expect(listEl.attr('hx-trigger')).toMatch(/every/);
+    expect(listEl.attr('hx-include')).toBe('.controls');
+  });
+
+  it('renders defaults when no query string is given', async () => {
+    const res = await request(makeApp()).get('/');
+    const $ = cheerio.load(res.text);
+    expect($('input[name="q"]').attr('value')).toBe('');
+    expect($('select[name="status"] option[selected]').attr('value')).toBe('');
+    expect($('select[name="sort"] option[selected]').attr('value')).toBe('last_seen');
+  });
+
+  it('pre-fills the controls form from query string so F5 restores selections', async () => {
+    const res = await request(makeApp()).get('/?q=jane&status=online&sort=bytes_today');
+    expect(res.status).toBe(200);
+    const $ = cheerio.load(res.text);
+    expect($('input[name="q"]').attr('value')).toBe('jane');
+    expect($('select[name="status"] option[selected]').attr('value')).toBe('online');
+    expect($('select[name="sort"] option[selected]').attr('value')).toBe('bytes_today');
+    // Form fires the URL sync handler after each request.
+    expect($('form.controls').attr('hx-on::after-request')).toContain('pfmonSyncUrl');
+  });
+
   it('includes anti-FOUC inline theme script in head before stylesheet', async () => {
     const res = await request(makeApp()).get('/');
     const $ = cheerio.load(res.text);

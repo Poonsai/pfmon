@@ -18,4 +18,15 @@
       localStorage.setItem(KEY, next);
     } catch (_e) {}
   };
+
+  // Called from the controls form's hx-on::after-request: mirror the current
+  // form state into the address bar so a hard refresh (F5) restores the same
+  // filter / sort. We replaceState rather than pushState because each keystroke
+  // would otherwise pile up a back-history entry.
+  window.pfmonSyncUrl = (form) => {
+    const fd = new FormData(form);
+    for (const [k, v] of [...fd]) if (!v) fd.delete(k);
+    const qs = new URLSearchParams(fd).toString();
+    history.replaceState(null, '', qs ? `/?${qs}` : '/');
+  };
 })();
