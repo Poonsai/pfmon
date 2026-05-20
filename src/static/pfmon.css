@@ -241,6 +241,8 @@ table.top-talkers tbody tr {
 table.top-talkers tbody tr:hover { background: var(--bg-row-hover); }
 table.top-talkers tbody td { padding: 6px 8px; }
 
+.wake-status { margin-left: 8px; }
+
 .tag-chip {
   display: inline-block;
   background: var(--accent-bg);

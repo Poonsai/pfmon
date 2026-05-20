@@ -112,4 +112,13 @@ describe('GET /fragments/device/:id', () => {
     expect(res.text).toContain('Down: 20 B/s');
     expect(res.text).toContain('Up: 10 B/s');
   });
+
+  it('renders a Wake button wired to the wake endpoint', async () => {
+    const res = await request(makeApp(db)).get(`/fragments/device/${id}`);
+    const $ = cheerio.load(res.text);
+    const btn = $(`button[hx-post="/devices/${id}/wake"]`);
+    expect(btn.length).toBe(1);
+    expect(btn.text().toLowerCase()).toContain('wake');
+    expect($('.wake-status').length).toBe(1);
+  });
 });

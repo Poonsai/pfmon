@@ -6,6 +6,13 @@
   <% if (dev.interface_friendly || dev.interface_name) { %>
     &middot; <a href="#" hx-get="/fragments/device-list?vlan=<%= dev.interface_name %>" hx-target="[data-fragment='device-list']" hx-swap="innerHTML"><%= dev.interface_friendly || dev.interface_name %></a>
   <% } %>
+  <button class="action"
+          hx-post="/devices/<%= dev.id %>/wake"
+          hx-target="next .wake-status"
+          hx-swap="innerHTML"
+          hx-on::after-request="setTimeout(() => { const el = this.nextElementSibling; if (el) el.textContent = ''; }, 3000)"
+          style="margin-left: 8px;">Wake</button>
+  <span class="wake-status" aria-live="polite"></span>
 </div>
 
 <dl>
