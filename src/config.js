@@ -20,6 +20,18 @@ export function loadConfig() {
     }
     return n;
   };
+  // Unlike positiveInt, this accepts 0 (the digest hour 00:00 is valid) and
+  // caps at 23. Empty / unset → null (digest disabled).
+  const hourInRange = (name) => {
+    const raw = process.env[name];
+    if (raw == null || raw === '') return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0 || n > 23) {
+      console.error(`invalid env: ${name}=${raw} (expected integer 0..23)`);
+      process.exit(2);
+    }
+    return n;
+  };
   return {
     pfsenseUrl: required('PFSENSE_URL'),
     pfsenseApiKey: required('PFSENSE_API_KEY'),
@@ -36,5 +48,6 @@ export function loadConfig() {
       process.env.GEOIP_PATH ?? new URL('../data/dbip-country-lite.csv', import.meta.url).pathname,
     wolBroadcastAddr: process.env.WOL_BROADCAST_ADDR ?? '255.255.255.255',
     wolPort: positiveInt('WOL_PORT', 9),
+    digestHour: hourInRange('DIGEST_HOUR'),
   };
 }

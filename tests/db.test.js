@@ -72,4 +72,31 @@ describe('db', () => {
     expect(baCols).toEqual(expect.arrayContaining(['device_id', 'day_bucket', 'alerted_at']));
     db.close();
   });
+
+  it('migration 003 adds digest_log table with day_bucket unique constraint', () => {
+    const path = tmpPath();
+    created.push(path);
+    const db = openDb(path);
+    runMigrations(db);
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='digest_log'")
+      .all();
+    expect(tables.length).toBe(1);
+    const cols = db
+      .prepare('PRAGMA table_info(digest_log)')
+      .all()
+      .map((c) => c.name);
+    expect(cols).toEqual(expect.arrayContaining(['id', 'day_bucket', 'sent_at', 'summary']));
+    db.prepare('INSERT INTO digest_log (day_bucket, sent_at, summary) VALUES (?, ?, ?)').run(
+      0,
+      0,
+      'a',
+    );
+    expect(() =>
+      db
+        .prepare('INSERT INTO digest_log (day_bucket, sent_at, summary) VALUES (?, ?, ?)')
+        .run(0, 1, 'b'),
+    ).toThrow(/UNIQUE/);
+    db.close();
+  });
 });

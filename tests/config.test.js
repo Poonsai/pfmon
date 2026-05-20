@@ -186,4 +186,51 @@ describe('loadConfig', () => {
     ).toThrow('process.exit(2)');
     expect(errSpy).toHaveBeenCalledWith(expect.stringMatching(/invalid env: WOL_PORT/));
   });
+
+  it('accepts DIGEST_HOUR in 0..23', () => {
+    let cfg = withEnv(
+      {
+        PFSENSE_URL: 'https://pfsense.lan',
+        PFSENSE_API_KEY: 'key',
+        DIGEST_HOUR: '0',
+      },
+      () => loadConfig(),
+    );
+    expect(cfg.digestHour).toBe(0);
+    cfg = withEnv(
+      {
+        PFSENSE_URL: 'https://pfsense.lan',
+        PFSENSE_API_KEY: 'key',
+        DIGEST_HOUR: '23',
+      },
+      () => loadConfig(),
+    );
+    expect(cfg.digestHour).toBe(23);
+  });
+
+  it('treats missing DIGEST_HOUR as disabled (null)', () => {
+    const cfg = withEnv(
+      {
+        PFSENSE_URL: 'https://pfsense.lan',
+        PFSENSE_API_KEY: 'key',
+        DIGEST_HOUR: undefined,
+      },
+      () => loadConfig(),
+    );
+    expect(cfg.digestHour).toBeNull();
+  });
+
+  it('exits on DIGEST_HOUR=24', () => {
+    expect(() =>
+      withEnv(
+        {
+          PFSENSE_URL: 'https://pfsense.lan',
+          PFSENSE_API_KEY: 'key',
+          DIGEST_HOUR: '24',
+        },
+        () => loadConfig(),
+      ),
+    ).toThrow('process.exit(2)');
+    expect(errSpy).toHaveBeenCalledWith(expect.stringMatching(/invalid env: DIGEST_HOUR/));
+  });
 });
