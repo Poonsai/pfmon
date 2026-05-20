@@ -60,9 +60,7 @@ describe('db', () => {
       .map((c) => c.name);
     expect(cols).toContain('daily_budget_bytes');
     const tables = db
-      .prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='budget_alerts'",
-      )
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='budget_alerts'")
       .all();
     expect(tables.length).toBe(1);
     const baCols = db

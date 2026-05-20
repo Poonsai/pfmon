@@ -144,10 +144,8 @@ export async function maybeSendDigest(
   }
 
   if (ok) {
-    db.prepare('INSERT OR IGNORE INTO digest_log (day_bucket, sent_at, summary) VALUES (?, ?, ?)').run(
-      dayBucket,
-      now,
-      summary,
-    );
+    db.prepare(
+      'INSERT OR IGNORE INTO digest_log (day_bucket, sent_at, summary) VALUES (?, ?, ?)',
+    ).run(dayBucket, now, summary);
   }
 }

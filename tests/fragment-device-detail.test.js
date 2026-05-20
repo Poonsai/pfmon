@@ -123,10 +123,7 @@ describe('GET /fragments/device/:id', () => {
   });
 
   it('renders the budget form with current value when set', async () => {
-    db.prepare('UPDATE devices SET daily_budget_bytes = ? WHERE id = ?').run(
-      500 * 1024 * 1024,
-      id,
-    );
+    db.prepare('UPDATE devices SET daily_budget_bytes = ? WHERE id = ?').run(500 * 1024 * 1024, id);
     const res = await request(makeApp(db)).get(`/fragments/device/${id}`);
     expect(res.status).toBe(200);
     const $ = cheerio.load(res.text);
@@ -143,10 +140,7 @@ describe('GET /fragments/device/:id', () => {
 
   it('shows today/budget usage percent when budget set and traffic exists', async () => {
     const now = Math.floor(Date.now() / 1000);
-    db.prepare('UPDATE devices SET daily_budget_bytes = ? WHERE id = ?').run(
-      100 * 1024 * 1024,
-      id,
-    );
+    db.prepare('UPDATE devices SET daily_budget_bytes = ? WHERE id = ?').run(100 * 1024 * 1024, id);
     db.prepare(
       `INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, 0)`,
     ).run(id, now - 60, 50 * 1024 * 1024, 0);
