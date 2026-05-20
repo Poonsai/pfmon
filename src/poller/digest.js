@@ -101,3 +101,53 @@ export function buildDigestSummary(db, { now }) {
 
   return { summary: lines.join('\n').trimEnd(), hasContent };
 }
+
+const NTFY_TIMEOUT_MS = 5000;
+
+export async function maybeSendDigest(
+  db,
+  { topicUrl, now, digestHour, timeoutMs = NTFY_TIMEOUT_MS },
+) {
+  if (digestHour == null || !topicUrl) return;
+  // Hour-of-day is server-local so DIGEST_HOUR=7 fires at 7 AM local time.
+  // Document this clearly in the env var — UTC users will need to adjust.
+  const currentHour = new Date(now * 1000).getHours();
+  if (currentHour !== digestHour) return;
+
+  const dayBucket = Math.floor(now / 86400) * 86400;
+  const alreadySent = db.prepare('SELECT 1 FROM digest_log WHERE day_bucket = ?').get(dayBucket);
+  if (alreadySent) return;
+
+  const { summary, hasContent } = buildDigestSummary(db, { now });
+  if (!hasContent) return;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let ok = false;
+  try {
+    const res = await fetch(topicUrl, {
+      method: 'POST',
+      headers: { Title: 'pfmon daily digest', 'Content-Type': 'text/plain' },
+      body: summary,
+      signal: controller.signal,
+    });
+    ok = res.ok;
+    if (!ok) {
+      console.log(
+        JSON.stringify({ level: 'warn', msg: 'ntfy digest non-2xx', status: res.status }),
+      );
+    }
+  } catch (e) {
+    console.log(JSON.stringify({ level: 'warn', msg: 'ntfy digest error', error: String(e) }));
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (ok) {
+    db.prepare('INSERT OR IGNORE INTO digest_log (day_bucket, sent_at, summary) VALUES (?, ?, ?)').run(
+      dayBucket,
+      now,
+      summary,
+    );
+  }
+}
