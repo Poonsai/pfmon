@@ -71,6 +71,7 @@ const sched = startScheduler({
   wanOverride: cfg.wanInterfaceName,
   initialStateBytes: prevStateBytes,
   ntfyRetry,
+  digestHour: cfg.digestHour,
 });
 
 const app = express();

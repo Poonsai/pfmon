@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { maybeFireNewDeviceAlerts } from './alerts.js';
 import { maybeFireBudgetAlerts } from './budgets.js';
+import { maybeSendDigest } from './digest.js';
 import { normalizeInterfaces } from './interfaces.js';
 import {
   reconcileDevices,
@@ -89,6 +90,7 @@ export function startScheduler({
   wanOverride,
   initialStateBytes,
   ntfyRetry,
+  digestHour,
 }) {
   let consecutiveFails = 0;
   let nextRunAt = Date.now();
@@ -143,9 +145,11 @@ export function startScheduler({
   }
 
   const fastTask = cron.schedule('*/5 * * * * *', tick);
-  const hourlyTask = cron.schedule('0 * * * *', () =>
-    rollupHourly(db, { now: Math.floor(Date.now() / 1000) }),
-  );
+  const hourlyTask = cron.schedule('0 * * * *', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    rollupHourly(db, { now });
+    await maybeSendDigest(db, { topicUrl: ntfyTopicUrl, now, digestHour });
+  });
   const dailyTask = cron.schedule('5 0 * * *', () => {
     const now = Math.floor(Date.now() / 1000);
     rollupDaily(db, { now });
