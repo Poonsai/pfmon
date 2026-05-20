@@ -1,6 +1,7 @@
 import { createSocket } from 'node:dgram';
 
-const MAC_RE = /^([0-9a-f]{2})[:-]([0-9a-f]{2})[:-]([0-9a-f]{2})[:-]([0-9a-f]{2})[:-]([0-9a-f]{2})[:-]([0-9a-f]{2})$/i;
+const MAC_RE =
+  /^([0-9a-f]{2})[:-]([0-9a-f]{2})[:-]([0-9a-f]{2})[:-]([0-9a-f]{2})[:-]([0-9a-f]{2})[:-]([0-9a-f]{2})$/i;
 
 export function buildMagicPacket(mac) {
   const m = MAC_RE.exec(String(mac ?? '').trim());
