@@ -82,7 +82,12 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/api/health', buildHealthRouter());
 app.use(buildPageRouter({ db }));
 app.use(buildFragmentsRouter({ db }));
-app.use(buildActionsRouter({ db }));
+app.use(
+  buildActionsRouter({
+    db,
+    wolConfig: { broadcastAddr: cfg.wolBroadcastAddr, port: cfg.wolPort },
+  }),
+);
 
 const server = app.listen(cfg.port, () => {
   console.log(JSON.stringify({ level: 'info', msg: 'http listening', port: cfg.port }));

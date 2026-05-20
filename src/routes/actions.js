@@ -1,6 +1,7 @@
 import express from 'express';
+import { sendMagicPacket } from '../wol.js';
 
-export function buildActionsRouter({ db }) {
+export function buildActionsRouter({ db, wolConfig }) {
   const router = express.Router();
 
   router.patch('/devices/:id/nickname', (req, res) => {
@@ -71,6 +72,30 @@ export function buildActionsRouter({ db }) {
     const id = Number(req.params.id);
     db.prepare('UPDATE devices SET new_until_seen_at = NULL WHERE id = ?').run(id);
     res.send('');
+  });
+
+  router.post('/devices/:id/wake', async (req, res) => {
+    const id = Number(req.params.id);
+    const dev = db.prepare('SELECT mac FROM devices WHERE id = ?').get(id);
+    if (!dev) return res.status(404).send('not found');
+    try {
+      await sendMagicPacket({
+        mac: dev.mac,
+        broadcastAddr: wolConfig.broadcastAddr,
+        port: wolConfig.port,
+      });
+      console.log(JSON.stringify({ level: 'info', msg: 'wol sent', device_id: id, mac: dev.mac }));
+      res
+        .status(200)
+        .send('<span style="color: var(--success); font-size: 12px;">Magic packet sent</span>');
+    } catch (e) {
+      console.error(
+        JSON.stringify({ level: 'error', msg: 'wol failed', device_id: id, error: String(e) }),
+      );
+      res
+        .status(500)
+        .send('<span style="color: var(--danger); font-size: 12px;">Wake failed</span>');
+    }
   });
 
   return router;
