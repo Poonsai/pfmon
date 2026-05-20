@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.3.0](https://github.com/Poonsai/pfmon/compare/v0.2.4...v0.3.0) (2026-05-20)
+
+
+### Features
+
+* **actions:** add PATCH /devices/:id/budget endpoint ([2eb806c](https://github.com/Poonsai/pfmon/commit/2eb806c301cae10f9e72023b14629afdcaf788d0))
+* **actions:** add POST /devices/:id/wake endpoint ([295c75b](https://github.com/Poonsai/pfmon/commit/295c75b0263aa0a80ac9ee33a612f924a2870318))
+* **config:** add WOL_BROADCAST_ADDR and WOL_PORT env vars ([bac82eb](https://github.com/Poonsai/pfmon/commit/bac82eb54b77356d5bc3c477509234ee2899faf5))
+* **fragments:** add getTopTalkers query helper ([bd85f21](https://github.com/Poonsai/pfmon/commit/bd85f21d350e04fd4c8c91d24e1594d3140bfa37))
+* **fragments:** add top-talkers leaderboard with range selector ([8338ce3](https://github.com/Poonsai/pfmon/commit/8338ce3cb185a335c558e5293865b93f392eb89f))
+* **poller:** add buildDigestSummary pure function ([b6011a5](https://github.com/Poonsai/pfmon/commit/b6011a5a13f79e81614100567ce9179bf2c0b296))
+* **poller:** add maybeFireBudgetAlerts module ([b06d6ec](https://github.com/Poonsai/pfmon/commit/b06d6ec6981600080e2f6e3ff16532719b085135))
+* **poller:** add maybeSendDigest orchestrator with idempotent day-bucket guard ([dbfb036](https://github.com/Poonsai/pfmon/commit/dbfb03626441e46d098642425b0ce095e8792a73))
+* **poller:** fire daily digest from hourly cron ([d5dfc4d](https://github.com/Poonsai/pfmon/commit/d5dfc4d42aa42a2ff0c2db37a7d59fdfc215ed16))
+* **poller:** wire budget alerts into runOnePoll ([e9c42b0](https://github.com/Poonsai/pfmon/commit/e9c42b04bac3ebaa36e9eb82c521a888d8c8d482))
+* **rules:** expand device-type taxonomy with consoles, cameras, routers, laptops ([63505db](https://github.com/Poonsai/pfmon/commit/63505dba5846ef121c989b52d1099d80667c21e2))
+* **schema:** add daily_budget_bytes column and budget_alerts table ([fe0ce02](https://github.com/Poonsai/pfmon/commit/fe0ce0245546c4062c09b5de42dff16f14cb08f5))
+* **schema:** add digest_log table and DIGEST_HOUR config var ([7b6e03d](https://github.com/Poonsai/pfmon/commit/7b6e03dc40195d09a5e31e430e377b2ff65708f7))
+* **ui:** add daily budget field to device detail panel ([e5ffc04](https://github.com/Poonsai/pfmon/commit/e5ffc04a80bd9986c8db93c75a1174232c996da1))
+* **ui:** add Wake button to device detail panel ([c1133ec](https://github.com/Poonsai/pfmon/commit/c1133ec5e3544032623f71c26e95d481b32b39f5))
+* **ui:** mount top-talkers fragment between WAN summary and device list ([1ee544e](https://github.com/Poonsai/pfmon/commit/1ee544e97aa1e0595d65deba65660010bf01d3a8))
+* **ui:** preserve filter form state across auto-refresh and hard refresh ([26f9832](https://github.com/Poonsai/pfmon/commit/26f9832478d2a334bd9ce95f53ac82c604dedd12))
+* **ui:** show device-type chip in device list ([85b0e85](https://github.com/Poonsai/pfmon/commit/85b0e85c491b0359af7f8da07648ae1c91e159bf))
+* **wol:** add buildMagicPacket ([088e5a5](https://github.com/Poonsai/pfmon/commit/088e5a5d2564efe9b97744ccaadf9e7855e2c6ba))
+* **wol:** add sendMagicPacket UDP sender ([95c2daa](https://github.com/Poonsai/pfmon/commit/95c2daa18f3fc821fb28d729d66dc04873415963))
+
+
+### Performance Improvements
+
+* **fragments:** sort by SELECT alias to avoid recomputing bytes_today ([d94486d](https://github.com/Poonsai/pfmon/commit/d94486d173cc023f1ab749a9d8551e8d0259c1dd))
+
 ## [0.2.4](https://github.com/Poonsai/pfmon/compare/v0.2.3...v0.2.4) (2026-05-18)
 
 
