@@ -73,4 +73,35 @@ describe('runOnePoll', () => {
     expect(row.success).toBe(0);
     expect(row.error_msg).toMatch(/boom/);
   });
+
+  it('invokes the budget alerter so over-budget devices generate retry state', async () => {
+    // We use an unresolvable ntfy URL so the POST fails fast; the side effect
+    // we assert on is that the budget alerter was reached and populated the
+    // shared ntfyRetry Map with a "budget:<id>" key. (The success-path side
+    // effect — a budget_alerts row — is covered exhaustively in tests/budgets.test.js.)
+    const db = new Database(':memory:');
+    runMigrations(db);
+    const now = 1_000_000;
+    db.prepare(
+      `INSERT INTO devices (mac, hostname, is_online, first_seen_at, last_seen_at, daily_budget_bytes)
+       VALUES ('aa:bb:cc:dd:ee:ff','tv',1,?,?,?)`,
+    ).run(now, now, 1);
+    const id = db.prepare("SELECT id FROM devices WHERE mac='aa:bb:cc:dd:ee:ff'").get().id;
+    db.prepare(
+      `INSERT INTO traffic_samples (device_id, ts, rx_bytes, tx_bytes, states_count) VALUES (?, ?, ?, ?, 0)`,
+    ).run(id, now - 60, 1_000_000, 0);
+    const ntfyRetry = new Map();
+    await runOnePoll({
+      db,
+      client: fakeClient(),
+      ouiMap: new Map(),
+      geoRanges: [],
+      now,
+      staleAfterSec: 300,
+      ntfyTopicUrl: 'http://127.0.0.1:1/topic',
+      ntfyRetry,
+    });
+    const budgetKeys = [...ntfyRetry.keys()].filter((k) => k.startsWith('budget:'));
+    expect(budgetKeys.length).toBe(1);
+  });
 });

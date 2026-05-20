@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import { maybeFireNewDeviceAlerts } from './alerts.js';
+import { maybeFireBudgetAlerts } from './budgets.js';
 import { normalizeInterfaces } from './interfaces.js';
 import {
   reconcileDevices,
@@ -59,6 +60,7 @@ export async function runOnePoll({
     recordFirewallBlocks(db, { blocks: filterLogBlocks });
 
     await maybeFireNewDeviceAlerts(db, { topicUrl: ntfyTopicUrl, now, graceSec, ntfyRetry });
+    await maybeFireBudgetAlerts(db, { topicUrl: ntfyTopicUrl, now, ntfyRetry });
 
     const duration = Date.now() - start;
     db.prepare('INSERT INTO poll_log (ts, success, duration_ms) VALUES (?, 1, ?)').run(
