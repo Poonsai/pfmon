@@ -34,6 +34,30 @@ export function buildActionsRouter({ db, wolConfig }) {
     </dd>`);
   });
 
+  router.patch('/devices/:id/budget', (req, res) => {
+    const id = Number(req.params.id);
+    const raw = (req.body?.budget_mb ?? '').trim();
+    let value = null;
+    if (raw.length > 0) {
+      const mb = Number(raw);
+      if (!Number.isFinite(mb) || !Number.isInteger(mb) || mb < 0) {
+        return res.status(400).send('budget_mb must be a non-negative integer');
+      }
+      value = mb * 1024 * 1024;
+    }
+    const exists = db.prepare('SELECT 1 FROM devices WHERE id = ?').get(id);
+    if (!exists) return res.status(404).send('not found');
+    db.prepare('UPDATE devices SET daily_budget_bytes = ? WHERE id = ?').run(value, id);
+    const displayMb = value === null ? '' : Math.round(value / 1024 / 1024);
+    res.send(`<dd>
+      <form hx-patch="/devices/${id}/budget" hx-target="closest dd" hx-swap="outerHTML">
+        <input type="number" min="0" step="1" name="budget_mb" class="inline-edit" value="${escapeHtml(String(displayMb))}" placeholder="(no budget)" style="width: 100px;">
+        <span style="color: var(--fg-muted); font-size: 11px;">MB / day</span>
+        <button class="action" type="submit">Save</button>
+      </form>
+    </dd>`);
+  });
+
   router.post('/devices/:id/tags', (req, res) => {
     const id = Number(req.params.id);
     const tag = (req.body?.tag ?? '').trim().toLowerCase();
