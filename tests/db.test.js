@@ -41,9 +41,35 @@ describe('db', () => {
     created.push(path);
     const db = openDb(path);
     runMigrations(db);
+    const firstCount = db.prepare('SELECT COUNT(*) as c FROM schema_migrations').get().c;
     runMigrations(db);
-    const count = db.prepare('SELECT COUNT(*) as c FROM schema_migrations').get().c;
-    expect(count).toBe(1);
+    const secondCount = db.prepare('SELECT COUNT(*) as c FROM schema_migrations').get().c;
+    expect(secondCount).toBe(firstCount);
+    expect(firstCount).toBeGreaterThan(0);
+    db.close();
+  });
+
+  it('migration 002 adds daily_budget_bytes column and budget_alerts table', () => {
+    const path = tmpPath();
+    created.push(path);
+    const db = openDb(path);
+    runMigrations(db);
+    const cols = db
+      .prepare('PRAGMA table_info(devices)')
+      .all()
+      .map((c) => c.name);
+    expect(cols).toContain('daily_budget_bytes');
+    const tables = db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='budget_alerts'",
+      )
+      .all();
+    expect(tables.length).toBe(1);
+    const baCols = db
+      .prepare('PRAGMA table_info(budget_alerts)')
+      .all()
+      .map((c) => c.name);
+    expect(baCols).toEqual(expect.arrayContaining(['device_id', 'day_bucket', 'alerted_at']));
     db.close();
   });
 });
