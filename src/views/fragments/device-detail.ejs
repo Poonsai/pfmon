@@ -26,6 +26,17 @@
   <dt>IP / MAC</dt><dd><%= dev.current_ip || '-' %> &middot; <%= dev.mac %></dd>
   <% if (dev.current_ipv6) { %><dt>IPv6</dt><dd><%= dev.current_ipv6 %></dd><% } %>
   <dt>Vendor / Type</dt><dd><%= dev.vendor || '-' %> &middot; <%= dev.device_type_guess || 'Unknown' %></dd>
+  <dt>Daily budget</dt>
+  <dd>
+    <form hx-patch="/devices/<%= dev.id %>/budget" hx-target="closest dd" hx-swap="outerHTML">
+      <input type="number" min="0" step="1" name="budget_mb" class="inline-edit" value="<%= budgetMb %>" placeholder="(no budget)" style="width: 100px;">
+      <span style="color: var(--fg-muted); font-size: 11px;">MB / day</span>
+      <button class="action" type="submit">Save</button>
+      <% if (budgetPct !== null) { %>
+        <span style="margin-left: 8px; font-size: 12px;<% if (budgetPct >= 100) { %> color: var(--danger); font-weight: 600;<% } else if (budgetPct >= 80) { %> color: var(--warning-strong); font-weight: 600;<% } else { %> color: var(--fg-muted);<% } %>"><%= budgetPct %>% used today</span>
+      <% } %>
+    </form>
+  </dd>
   <% if (dev.current_lease_type) { %>
     <dt>DHCP lease</dt><dd><%= dev.current_lease_type %><% if (dev.current_lease_expires_at) { %> &middot; expires <%= formatRelative(dev.current_lease_expires_at, now) %><% } %></dd>
   <% } %>

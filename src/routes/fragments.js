@@ -358,6 +358,11 @@ export function buildFragmentsRouter({ db }) {
     const weekBytes = sumDeviceBytes(db, { deviceId: id, sinceTs: now - 7 * 86400 });
     const monthBytes = sumDeviceBytes(db, { deviceId: id, sinceTs: now - 30 * 86400 });
     const allTimeBytes = sumDeviceBytesAllTime(db, { deviceId: id });
+    const budgetBytes = dev.daily_budget_bytes;
+    const budgetMb = budgetBytes == null ? '' : Math.round(budgetBytes / 1024 / 1024);
+    const todayTotal = (todayBytes.rx ?? 0) + (todayBytes.tx ?? 0);
+    const budgetPct =
+      budgetBytes && budgetBytes > 0 ? Math.round((todayTotal / budgetBytes) * 100) : null;
     // The bandwidth-now field renders "Down: X/s · Up: Y/s". A sample's
     // rx_bytes/tx_bytes is the delta over the previous poll interval, not a
     // per-second rate. Fetch the two most recent samples to derive the actual
@@ -423,6 +428,8 @@ export function buildFragmentsRouter({ db }) {
       now,
       formatBytes,
       formatRelative,
+      budgetMb,
+      budgetPct,
     });
   });
 
