@@ -62,6 +62,10 @@ All settings are environment variables. See `.env.example` for the full list:
 | `PORT` | no | `8080` | HTTP listener port |
 | `LOG_LEVEL` | no | `info` | `info`, `debug`, `warn`, `error` |
 | `WAN_INTERFACE_NAME` | no | (auto) | Override which interface is treated as WAN |
+| `WOL_BROADCAST_ADDR` | no | `255.255.255.255` | UDP broadcast address for Wake-on-LAN packets. Set to a directed broadcast (e.g. `10.0.0.255`) if your devices are on a different L2 segment than the pfmon container. |
+| `WOL_PORT` | no | `9` | UDP port for Wake-on-LAN packets. |
+
+**Wake-on-LAN note:** When the pfmon container uses Docker bridge networking, packets sent to `255.255.255.255` will not cross the L2 boundary into your LAN. Either set `WOL_BROADCAST_ADDR` to the target subnet's directed broadcast and ensure pfSense allows the forward, or run pfmon with `network_mode: host` in your `docker-compose.yml`.
 
 ## Releases
 
