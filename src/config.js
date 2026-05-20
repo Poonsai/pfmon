@@ -34,5 +34,7 @@ export function loadConfig() {
     ouiPath: process.env.OUI_PATH ?? new URL('../data/oui.csv', import.meta.url).pathname,
     geoIpPath:
       process.env.GEOIP_PATH ?? new URL('../data/dbip-country-lite.csv', import.meta.url).pathname,
+    wolBroadcastAddr: process.env.WOL_BROADCAST_ADDR ?? '255.255.255.255',
+    wolPort: positiveInt('WOL_PORT', 9),
   };
 }

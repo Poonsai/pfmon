@@ -144,4 +144,46 @@ describe('loadConfig', () => {
       ).pfsenseVerifyTls,
     ).toBe(true);
   });
+
+  it('defaults WoL config to 255.255.255.255:9', () => {
+    const cfg = withEnv(
+      {
+        PFSENSE_URL: 'https://pfsense.lan',
+        PFSENSE_API_KEY: 'key',
+        WOL_BROADCAST_ADDR: undefined,
+        WOL_PORT: undefined,
+      },
+      () => loadConfig(),
+    );
+    expect(cfg.wolBroadcastAddr).toBe('255.255.255.255');
+    expect(cfg.wolPort).toBe(9);
+  });
+
+  it('accepts WOL_BROADCAST_ADDR and WOL_PORT overrides', () => {
+    const cfg = withEnv(
+      {
+        PFSENSE_URL: 'https://pfsense.lan',
+        PFSENSE_API_KEY: 'key',
+        WOL_BROADCAST_ADDR: '10.0.0.255',
+        WOL_PORT: '7',
+      },
+      () => loadConfig(),
+    );
+    expect(cfg.wolBroadcastAddr).toBe('10.0.0.255');
+    expect(cfg.wolPort).toBe(7);
+  });
+
+  it('exits on a non-integer WOL_PORT', () => {
+    expect(() =>
+      withEnv(
+        {
+          PFSENSE_URL: 'https://pfsense.lan',
+          PFSENSE_API_KEY: 'key',
+          WOL_PORT: 'lots',
+        },
+        () => loadConfig(),
+      ),
+    ).toThrow('process.exit(2)');
+    expect(errSpy).toHaveBeenCalledWith(expect.stringMatching(/invalid env: WOL_PORT/));
+  });
 });
